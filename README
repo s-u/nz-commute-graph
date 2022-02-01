@@ -1,5 +1,5 @@
 This repo contains a few scripts used to analyse commute patterns
-in New Zeamand to generate a graph of transitions between
+in New Zealand to generate a graph of transitions between
 spatial polygons, in our case SA2s.
 
 This README describes the whole process. For a quick start with just
