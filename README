@@ -1,0 +1,187 @@
+This repo contains a few scripts used to analyse commute patterns
+in New Zeamand to generate a graph of transitions between
+spatial polygons, in our case SA2s.
+
+This README describes the whole process. For a quick start with just
+the graph, look for `trans-matrix.rds` described at the bottom
+which is all you need to construct the graph.
+
+The country is divided into disjoint polygons: Statistical Areas (SAs).
+The file `statistical-area-2-2021-clipped-generalised.shp`
+has the polygons for level-2 statistical areas which is what we are
+using here.
+
+The original source is
+  2018-census-main-means-of-travel-to-work-by-statistical-a.csv
+
+https://datafinder.stats.govt.nz/table/104720-2018-census-main-means-of-travel-to-work-by-statistical-area-2/
+
+which lists pairs of areas and associated commuting counts by
+various means of transport. We use a subset of that file which
+only includes pairs where the SAs are not the same. The resulting
+file is `transitions.rds`.
+
+> tr = readRDS("transitions.rds")
+> writeLines(paste(format(colnames(tr)), tr[1,]))
+SA2_code_usual_residence_address            101500
+SA2_name_usual_residence_address            Whakapaku
+SA2_usual_residence_easting                 1660463.444
+SA2_usual_residence_northing                6121224.839
+SA2_code_workplace_address                  103000
+SA2_name_workplace_address                  Kerikeri Central
+SA2_workplace_easting                       1686540.007
+SA2_workplace_northing                      6101582.465
+Work_at_home                                -999
+Drive_a_private_car_truck_or_van            12
+Drive_a_company_car_truck_or_van            -999
+Passenger_in_a_car_truck_van_or_company_bus -999
+Public_bus                                  -999
+Train                                       -999
+Bicycle                                     -999
+Walk_or_jog                                 -999
+Ferry                                       -999
+Other                                       -999
+Total                                       15
+r.lat                                       -35.0498769742717
+r.lon                                       173.662998552417
+w.lat                                       -35.2250730925398
+w.lon                                       173.950963035659
+
+(-999 = NA or truncated 0)
+
+We then take the endpoints from that data frame and
+run a routing algorithm to compute the likely best route
+between the two areas (home => work, taking centroids as
+the routing way points). The result is in `routes-car.rds`.
+
+It is a list with each entry corresponding to one row
+in `transitions.rds`. Note that sometimes the routing can
+fail, beause we use the SA centroid which may be too far
+away from any road in some remote areas then the entry
+is a string with the error.
+
+> rt = readRDS("routes-car.rds")
+> rt[[1]]
+$points
+            [,1]     [,2]
+  [1,] -35.04854 173.6706
+  [2,] -35.04902 173.6707
+  [3,] -35.04956 173.6709
+  [4,] -35.05008 173.6713
+...
+[508,] -35.22543 173.9506
+[509,] -35.22544 173.9506
+[510,] -35.22506 173.9509
+
+$waypoints
+          [,1]     [,2]
+[1,] -35.04854 173.6706
+[2,] -35.22506 173.9509
+
+$distance
+[1] 45419.89
+
+$time
+[1] 2010.246
+
+
+Based on the routes, we compute the intersection of the
+route with all SA2s and construct a sequence of SA2
+along the route. There is some extra care to not flip-flop
+when driving along the border of two SA2 (which is actually
+common, because roads are often the boundaries).
+
+The resulting sequence of SA2s for each route is in
+`strings.rds`. The SA2s are identified by their index
+in the shape file:
+
+> s=readRDS("strings.rds")
+> s[[1]]
+[1] 615 598 597 601 604  19 618 617
+
+> shp = read_sf("statistical-area-2-2021-clipped-generalised.shp")
+> as.data.frame(shp[s[[1]],])[,1:3]
+  SA22021_V1          SA22021__1          SA22021__2
+1     101500           Whakapaku           Whakapaku
+2     101900                Kaeo                Kaeo
+3     101800           Whakarara           Whakarara
+4     102200 Lake Manuwai-Kapiro Lake Manuwai-Kapiro
+5     102500             Waipapa             Waipapa
+6     102600          Puketotara          Puketotara
+7     103100      Kerikeri South      Kerikeri South
+8     103000    Kerikeri Central    Kerikeri Central
+
+From all the sequences plus counts from the census file
+we construct a full transition matrix:
+
+> m=readRDS("full-matrix.rds")
+> dim(m)
+[1] 476395      4
+> m[1:10,]
+      route from  to count
+ [1,]     1  615 598    12
+ [2,]     1  598 597    12
+ [3,]     1  597 601    12
+ [4,]     1  601 604    12
+ [5,]     1  604  19    12
+ [6,]     1   19 618    12
+ [7,]     1  618 617    12
+ [8,]     2   52  53    39
+ [9,]     3  951 149    12
+[10,]     3  149 949    12
+
+Route is simply the index in the routes file (and thus
+the `transitions.rds` data frame).
+
+Finally, this huge matrix is aggregated down to individual
+transitions between SA2: which is the final result
+`trans-matrix.rds`:
+
+> tm = readRDS("trans-matrix.rds")
+> dim(tm)
+[1] 7579    3
+> tm[1:5,]
+  from to count
+1    2  1    12
+2    3  1    45
+3    4  1    69
+4  262  1    45
+5    1  2    57
+> summary(tm$count)
+   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+    0.0    45.0   192.0   703.7   618.0 50214.0 
+
+This matrix is quite small, because by definition you can only
+transition to the neighboring SA2s.
+
+Again the entry is simply the index into the shape file.
+
+Known issues:
+- the mapping from route points to SA2 sequence can skip an SA2
+  if the route has no point in that SA2 (i.e. the road is straight
+  across the entire SA2). We can detect this, because
+  `int` (from "strings.R") will include the SA2, but it won't be in
+  st_is_within_distance() point -> SA2 if there is no point inside
+  or nearby. Therefore there can be transitions which are not
+  into the neighboring SA2. Even if we detect it, fixing it is messy.
+  Possibly the most simple would be to syntesize an intermediate point
+  inside the missing SA2. One possible apporach would be to keep
+  a neighbor list and if the target is not in the list, take the two
+  points of the segment that crosses the border and generate an extra
+  point in the middle. Note that it can still fail if such point
+  happens to not be in any SA2 (e.g., the Harbour Bridge in Auckland
+  if using clipped polygons).
+
+- The routing is done using SA2 centroids. For some remote SA2 the
+  centroid may be far away from any road and GraphHopper will fail.
+
+- For historical reasons we are using 2021 SA2 even though this is
+  2018 census. We should re-run with 2018 shape files.
+
+Additonal info:
+
+- The routes have both distance and duration which could be added
+  to the mix if somehow useful.
+
+- officially, -999 is "censored" wich means any number 0..5. We
+  treat is as 0 since that's all we can do for all practical purposes.
