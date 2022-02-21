@@ -1,4 +1,4 @@
-if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) stop("Please r1;95;0cun this from the project root")
+if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) stop("Please run this from the project root")
 
 if (!file.exists("artifacts/strings.rds")) stop("Please run strings.R first")
 
@@ -28,5 +28,5 @@ names(ag)[3] = "count"
 saveRDS(ag, file="artifacts/trans-matrix.rds")
 
 ## to match our index to SA2s
-## sa = st_read("data/statistical-area-2-2021-clipped-generalised.shp")
+## sa = st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 ## sa[[1]][s[[1]]]

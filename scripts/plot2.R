@@ -3,8 +3,7 @@ for (pkg in packages) library(pkg, character.only=TRUE)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) stop("Please run this from the project root")
 
-#sa = st_read("data/statistical-area-2-2018-generalised.shp")
-sa = st_read("data/statistical-area-2-2021-clipped-generalised.shp")
+sa = st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 geo = st_geometry(sa)
 geoll = st_transform(geo, crs=4326)
 g=readRDS("artifacts/trans-matrix.rds")

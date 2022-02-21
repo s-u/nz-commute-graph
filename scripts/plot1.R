@@ -6,7 +6,7 @@ if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a
 if (!file.exists("artifacts/routes-car.rds")) stop("Please run routes.R first")
 
 a=readRDS("artifacts/routes-car.rds")
-d=st_read("data/statistical-area-2-2021-clipped-generalised.shp")
+d=st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 geo=st_geometry(d)
 geoll = st_transform(geo, crs=4326)
 

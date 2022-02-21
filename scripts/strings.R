@@ -11,7 +11,7 @@ if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a
 if (!file.exists("artifacts/routes-car.rds")) stop("Please run routes.R first")
 
 a=readRDS("artifacts/routes-car.rds")
-d=st_read("data/statistical-area-2-2021-clipped-generalised.shp")
+d=st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 geo=st_geometry(d)
 geoll = st_transform(geo, crs=4326)
 
@@ -20,7 +20,7 @@ if (!file.exists("src/foldw.so"))
 dyn.load("src/foldw.so")
 
 l <- mclapply(seq_along(a), function(i) tryCatch({
-    cat(i, "\n")
+    if (i %% 100 == 0) cat(i, "\n")
     if (is.character(a[[i]])) return (a[[i]])
     ls   = st_linestring(a[[i]]$points[,2:1])
     lsnz = st_transform(st_sfc(ls, crs=4326), st_crs(geo))
@@ -29,6 +29,6 @@ l <- mclapply(seq_along(a), function(i) tryCatch({
     wid <- st_is_within_distance(lsl, geoll[attr(int, "idx")[,2]], 10)
     fwid = .Call("foldw", wid)
     trs = attr(int, "idx")[rle(fwid)$values,2]
-}, error=function(e) e), mc.cores=32)
+}, error=function(e) e), mc.cores=64)
 
 saveRDS(l, file="artifacts/strings.rds")
