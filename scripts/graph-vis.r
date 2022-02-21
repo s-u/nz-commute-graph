@@ -1,10 +1,15 @@
 library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(graphmobility)
+library(igraph)
 
 x <- readRDS("artifacts/stat-distr-data.rds")
 ptm <- readRDS("artifacts/prob-transition-matrix-morning.rds")
 pte <- readRDS("artifacts/prob-transition-matrix-evening.rds")
+bg <- readRDS("artifacts/big-component.rds")
 
-ed <- x |>
+p <- x |>
   pivot_longer(-c(Index, Scale, Commute)) |>
   rename(Likelihood = value) |>
   mutate(Scale = factor(Scale, levels = rev(sort(unique(Scale))))) |>
@@ -20,7 +25,7 @@ ggsave("visualizations/perm-test.png", p, width = 8, height = 10)
 
 tpm <- tibble(x = ptm@x)
 
-pm <- ggplot(tp, aes(x = x)) +
+pm <- ggplot(tpm, aes(x = x)) +
   geom_histogram(bins = 51) +
   theme_bw() +
   ylab("Count") +

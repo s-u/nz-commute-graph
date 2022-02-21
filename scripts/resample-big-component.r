@@ -8,7 +8,7 @@ library(tibble)
 library(tidyr)
 library(Matrix)
 
-registerDoMC(cores = 100)
+registerDoMC(cores = 10)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) {
 
@@ -27,6 +27,7 @@ big_component <-
   )
 
 bg <- to_subgraph(g, component == big_component, subset_by = "nodes")[[1]]
+saveRDS(bg, "artifacts/big-component.rds")
 
 ptm <- bg |>
     as_adjacency_matrix(attr = "count") |>
