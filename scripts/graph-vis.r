@@ -9,6 +9,8 @@ ptm <- readRDS("artifacts/prob-transition-matrix-morning.rds")
 pte <- readRDS("artifacts/prob-transition-matrix-evening.rds")
 bg <- readRDS("artifacts/big-component.rds")
 
+width <- height <- 7
+
 p <- x |>
   pivot_longer(-c(Index, Scale, Commute)) |>
   rename(Likelihood = value) |>
@@ -19,7 +21,7 @@ p <- x |>
     facet_grid(Scale ~ Commute, scale = "free_y") +
     theme_bw() +
     theme(legend.position="none")
-ggsave("visualizations/perm-test.png", p, width = 8, height = 6)
+ggsave("visualizations/perm-test.png", p, width = width, height = height)
 
 # ptm edge properties
 
@@ -31,7 +33,7 @@ pm <- ggplot(tpm, aes(x = x)) +
   ylab("Count") +
   xlab("Transition Probability") 
 
-ggsave("visualizations/trans-prob-test.png", pm, width = 8, height = 6)
+ggsave("visualizations/trans-prob-test.png", pm, width = width, height = height)
 
 am <- bg |>
     as_adjacency_matrix(attr = "count")
@@ -53,7 +55,8 @@ pcl <- ggplot(acl, aes(x = x)) +
   ylab("Count") +
   xlab("Log Edge Count") 
 
-ggsave("visualizations/edge-counts.png", pc / pcl, width = 8, height = 6)
+ggsave("visualizations/edge-counts.png", pc / pcl, width = width, 
+       height = height)
 
 deg <- tibble(
     `Out Degree` = apply(as.matrix(am), 1, function(x) sum(x > 0)),
@@ -69,7 +72,7 @@ p <- ggplot(deg, aes(x = value)) +
   xlab("Degree") +
   ylab("Count")
   
-ggsave("visualizations/degree-hists.png", p, width = 8, height = 6)
+ggsave("visualizations/degree-hists.png", p, width = width, height = height)
 
 rm <- readRDS("artifacts/resample-morning.rds")
 sd <- (readRDS("artifacts/stat-distr-data.rds") |>
@@ -81,9 +84,10 @@ x <- tibble(tail_p = tail_p, Index = seq_along(tail_p))
 p <- ggplot(x, aes(x = Index, y = tail_p)) +
   geom_line() +
   theme_bw() +
-  ylab("Empirical Tail Probability")
+  ylab("Empirical Tail Probability") +
+  xlab("Attractors Ordered by Decreasing Stationary Distribution")
 
-ggsave("visualizations/tail-probs.png", p, width = 8, height = 6)
+ggsave("visualizations/tail-probs.png", p, width = width, height = height)
 
 num_signif <- 
   vapply(
@@ -100,13 +104,14 @@ p <- tibble(ns = num_signif, x = seq_along(num_signif)) %>%
   xlab("Number of Top Attractors") +
   theme_bw()
 
-ggsave("visualizations/signif-attractors.png", p, width = 8, height = 6)
+ggsave("visualizations/signif-attractors.png", p, width = width, 
+       height = height)
 
 ms <- which.max(num_signif)
 
 aps <- p.adjust(tail_p[seq_len(ms)], method = "fdr")
 
-tibble(aps = aps, Index = seq_along(aps)) |>
+p <- tibble(aps = aps, Index = seq_along(aps)) |>
   ggplot(aes(x = Index, y = aps)) +
     geom_point() +
     theme_bw() +
@@ -114,3 +119,4 @@ tibble(aps = aps, Index = seq_along(aps)) |>
     xlab("Top Attractors") +
     geom_hline(yintercept = 0.05, color = "dark red")
   
+ggsave("visualizations/top-adjusted-p.png", p, width = width, height = height)
