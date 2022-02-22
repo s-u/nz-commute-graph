@@ -23,7 +23,7 @@ so=order(g$count, decreasing=TRUE)
 
 ## for paper:
 for.paper <- identical(Sys.getenv("FOR_PAPER"),"1")
-if (for.paper) pdf("plot2.pdf", 15, 11)
+if (for.paper) pdf("visualizations/plot2.pdf", 15, 11)
 
 par(mar=rep(0,4))
 # bb = c(174.74252, 174.92753, -36.94245, -36.83235)
@@ -37,6 +37,8 @@ plot(geoll[in.view], add=T, col=NA, border=1, lty=2)
 arrows(gc[g$from,1][so], gc[g$from,2][so], gc[g$to,1][so], gc[g$to,2][so],
        lwd=(sqrt(g$count)/224 * 30)[so], col=ifelse(g$dom, "#DF536B", "#2297E6")[so],
        angle=10, length=.3)
+
+lw = c(100, 500, 2500, 5000, 10000); par(lend=1); legend("topright",,c(ifelse(lw >= 1000, gsub(".",",",sprintf("%.3f", lw/1000), fixed=TRUE), lw),"","major direction","counter-major"),lwd=c(sqrt(lw)/224 * 30, 0, 6, 6), col=c(rep("#DF536B", length(lw)), NA, "#DF536B","#2297E6"), bg="#ffffffa0", seg.len=3, inset=0.05)
 
 if (for.paper) dev.off()
 
