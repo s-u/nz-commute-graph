@@ -75,6 +75,7 @@ saveRDS(ordm, "artifacts/order-morning.rds")
 orde <- order(stationary_distr(pte)[,1], decreasing = TRUE)
 saveRDS(orde, "artifacts/order-evening.rds")
 
+stop("here")
 x <- tibble(
   `Stat. Distr.` = stationary_distr(ptm)[,1][ordm],
   Index = seq_along(`Stat. Distr.`),

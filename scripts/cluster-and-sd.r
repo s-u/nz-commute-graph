@@ -5,6 +5,7 @@ library(graphmobility)
 library(igraph)
 library(foreach)
 library(checkmate)
+library(Matrix)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) {
 
@@ -57,8 +58,25 @@ saveRDS(g, "artifacts/mobility-graph.rds")
 saveRDS(g %N>% as_tibble(), "artifacts/strong-components-and-stat-distr.rds")
 
 big_comp_idx <- 
-  as.numeric(names(sort(table(a$component), decreasing = TRUE))[1])
+  as.numeric(names(sort(table(ni$component), decreasing = TRUE))[1])
 
 ni <- (g %>% to_subgraph(component == big_comp_idx, subset_by = "nodes"))[[1]]
 
+readr::write_delim(
+  ni %E>% as_tibble(), 
+  "artifacts/directed-graph.txt", 
+  col_names = FALSE
+)
 
+nia <- as_adjacency_matrix(ni, attr = "count")
+
+nia <- nia + t(nia)
+
+gnia <- as_tbl_graph(nia, directed = FALSE)
+
+coms <- gnia |> cluster_louvain()
+
+gnia <- gnia %N>%
+  mutate(community = coms$membership)
+
+saveRDS(gnia %N>% as_tibble(), "artifacts/north-island-communities.rds")
