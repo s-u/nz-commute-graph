@@ -26,7 +26,7 @@ comps <- components(g, mode = "strong")
 
 g <- g %N>%
   mutate(component = comps$membership,
-         stat_distr = NA)
+         stat_dist = NA)
 
 # for each of the components, get the stationary distribution.
 
@@ -54,4 +54,11 @@ g <- g %N>%
   mutate(stat_dist = ni$stat_dist)
 
 saveRDS(g, "artifacts/mobility-graph.rds")
-saveRDS(g %N>% as_tibble(), "artifacts/stat-distr.rds")
+saveRDS(g %N>% as_tibble(), "artifacts/strong-components-and-stat-distr.rds")
+
+big_comp_idx <- 
+  as.numeric(names(sort(table(a$component), decreasing = TRUE))[1])
+
+ni <- (g %>% to_subgraph(component == big_comp_idx, subset_by = "nodes"))[[1]]
+
+
