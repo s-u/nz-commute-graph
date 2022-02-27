@@ -137,3 +137,15 @@ xs$adj_tail_p <- p.adjust(xs$tail_p, method = "fdr")
 saveRDS(xs, "artifacts/attractor-indices.rds")
 
 ni <- readRDS("artifacts/mobility-graph.rds")
+
+nis <- (ni %>% 
+  to_subgraph(as.integer(name) %in% xs$vertex_id, subset_by = "nodes"))[[1]]
+
+# These are the same
+wc <- components(nis, mode = "weak")
+sc <- components(nis, mode = "strong")
+
+nis <- nis %N>%
+  mutate(weak_comp = wc$membership, strong_comp = sc$membership)
+
+saveRDS(nis %N>% as_tibble(), "artifacts/attractor-components.rds")
