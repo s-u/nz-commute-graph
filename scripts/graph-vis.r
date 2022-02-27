@@ -12,6 +12,8 @@ bg <- readRDS("artifacts/big-component.rds")
 width <- height <- 7
 
 p <- x |>
+  select(-vertex_id) |>
+  mutate(Commute = factor(Commute, c("Morning", "Evening"))) |>
   pivot_longer(-c(Index, Scale, Commute)) |>
   rename(Likelihood = value) |>
   mutate(Scale = factor(Scale, levels = rev(sort(unique(Scale))))) |>

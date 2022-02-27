@@ -71,12 +71,11 @@ pte <- bg |>
 saveRDS(pte, "artifacts/prob-transition-matrix-evening.rds")
 
 ordm <- order(stationary_distr(ptm)[,1], decreasing = TRUE)
-saveRDS(ordm, "artifacts/order-morning.rds")
 orde <- order(stationary_distr(pte)[,1], decreasing = TRUE)
-saveRDS(orde, "artifacts/order-evening.rds")
 
 stop("here")
 x <- tibble(
+  vertex_id = as.integer(colnames(ptm))[ordm],
   `Stat. Distr.` = stationary_distr(ptm)[,1][ordm],
   Index = seq_along(`Stat. Distr.`),
   `95% Null Quantile` = apply(rsm[,ordm], 2, quantile, .95),
@@ -84,6 +83,7 @@ x <- tibble(
 )
 
 y <- tibble(
+  vertex_id = as.integer(colnames(ptm))[ordm],
   `Stat. Distr.` = log(stationary_distr(ptm)[,1][ordm]),
   Index = seq_along(`Stat. Distr.`),
   `95% Null Quantile` = log(apply(rsm[,ordm], 2, quantile, .95)),
@@ -94,6 +94,7 @@ zm <- rbind(x, y)
 zm$Commute <- "Morning"
 
 x <- tibble(
+  vertex_id = as.integer(colnames(pte))[orde],
   `Stat. Distr.` = stationary_distr(pte)[,1][orde],
   Index = seq_along(`Stat. Distr.`),
   `95% Null Quantile` = apply(rse[,orde], 2, quantile, .95),
@@ -101,6 +102,7 @@ x <- tibble(
 )
 
 y <- tibble(
+  vertex_id = as.integer(colnames(pte))[orde],
   `Stat. Distr.` = log(stationary_distr(pte)[,1][orde]),
   Index = seq_along(`Stat. Distr.`),
   `95% Null Quantile` = log(apply(rse[,orde], 2, quantile, .95)),

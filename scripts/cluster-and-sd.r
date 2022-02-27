@@ -62,10 +62,11 @@ big_comp_idx <-
 
 ni <- (g %>% to_subgraph(component == big_comp_idx, subset_by = "nodes"))[[1]]
 
-readr::write_delim(
+write.table(
   ni %E>% as_tibble(), 
   "artifacts/directed-graph.txt", 
-  col_names = FALSE
+  row.names = FALSE,
+  col.names = FALSE
 )
 
 nia <- as_adjacency_matrix(ni, attr = "count")
