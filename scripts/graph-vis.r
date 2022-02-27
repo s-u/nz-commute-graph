@@ -42,8 +42,6 @@ am <- bg |>
 
 ac <- tibble(x = am@x, index = seq_along(am@x), Count = "Absolute") 
     
-acl <- tibble(x = log(am@x), index = seq_along(am@x), Count = "Log")
-
 library(patchwork)
 pc <- ggplot(ac, aes(x = x)) +
   geom_histogram(bins = 51) +
@@ -51,9 +49,10 @@ pc <- ggplot(ac, aes(x = x)) +
   ylab("Count") +
   xlab("Absolute Edge Count") 
 
-pcl <- ggplot(acl, aes(x = x)) +
+pcl <- ggplot(ac, aes(x = x)) +
   geom_histogram(bins = 51) +
   theme_bw() +
+  scale_x_log10() + 
   ylab("Count") +
   xlab("Log Edge Count") 
 
@@ -77,11 +76,21 @@ p <- ggplot(deg, aes(x = value)) +
 ggsave("visualizations/degree-hists.png", p, width = width, height = height)
 
 rm <- readRDS("artifacts/resample-morning.rds")
-sd <- (readRDS("artifacts/stat-distr-data.rds") |>
-  filter(Commute == "Morning" & Scale == "Original Scale"))[[1]]
+sd <- readRDS("artifacts/stat-distr-data.rds") |>
+  filter(Commute == "Morning" & Scale == "Original Scale")
 
-tail_p <- 1 - vapply(seq_along(sd), function(i) ecdf(rm[,i])(sd[i]), NA_real_)
-x <- tibble(tail_p = tail_p, Index = seq_along(tail_p))
+tail_p <- 1 - 
+  vapply(
+    seq_along(sd$`Stat. Distr.`), 
+    function(i) ecdf(rm[,i])(sd$`Stat. Distr.`[i]), 
+    NA_real_
+  )
+
+x <- tibble(
+  tail_p = tail_p, 
+  Index = seq_along(tail_p), 
+  vertex_id = sd$vertex_id
+)
 
 p <- ggplot(x, aes(x = Index, y = tail_p)) +
   geom_line() +
@@ -122,3 +131,9 @@ p <- tibble(aps = aps, Index = seq_along(aps)) |>
     geom_hline(yintercept = 0.05, color = "dark red")
   
 ggsave("visualizations/top-adjusted-p.png", p, width = width, height = height)
+
+xs <- x[seq_len(ms),]
+xs$adj_tail_p <- p.adjust(xs$tail_p, method = "fdr")
+saveRDS(xs, "artifacts/attractor-indices.rds")
+
+ni <- readRDS("artifacts/mobility-graph.rds")
