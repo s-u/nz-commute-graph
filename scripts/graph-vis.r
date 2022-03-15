@@ -3,6 +3,7 @@ library(dplyr)
 library(tidyr)
 library(graphmobility)
 library(igraph)
+library(tidygraph)
 
 x <- readRDS("artifacts/stat-distr-data.rds")
 ptm <- readRDS("artifacts/prob-transition-matrix-morning.rds")
@@ -86,17 +87,26 @@ tail_p <- 1 -
     NA_real_
   )
 
-x <- tibble(
-  tail_p = tail_p, 
-  Index = seq_along(tail_p), 
-  vertex_id = sd$vertex_id
+x <- bind_rows(
+  tibble(
+    prob = tail_p, 
+    Index = seq_along(tail_p), 
+    vertex_id = sd$vertex_id,
+    type = "Tail Probability"
+  ),
+  sd %>% 
+    rename(prob = `Stat. Distr.`) %>% 
+    select(prob, Index, vertex_id) %>%
+    mutate(type = "Stationary Distribution")
 )
+x$type <- factor(x$type, rev(sort(unique(x$type))))
 
-p <- ggplot(x, aes(x = Index, y = tail_p)) +
+p <- ggplot(x, aes(x = Index, y = prob)) +
   geom_line() +
   theme_bw() +
-  ylab("Empirical Tail Probability") +
-  xlab("Attractors Ordered by Decreasing Stationary Distribution")
+  facet_grid(type ~ ., scales = "free_y") +
+  ylab("") +
+  xlab("Stationary Distribution Values in Decreasing Order")
 
 ggsave("visualizations/tail-probs.png", p, width = width, height = height)
 
@@ -111,8 +121,8 @@ num_signif <-
 p <- tibble(ns = num_signif, x = seq_along(num_signif)) %>%
   ggplot(aes(x = x, y = ns)) +
   geom_line() +
-  ylab("Number of Significant Attractors") +
-  xlab("Number of Top Attractors") +
+  ylab("Number of Significant Loci") +
+  xlab("Number of Top Stationary Distribution Elements Tested") +
   theme_bw()
 
 ggsave("visualizations/signif-attractors.png", p, width = width, 
@@ -127,13 +137,18 @@ p <- tibble(aps = aps, Index = seq_along(aps)) |>
     geom_point() +
     theme_bw() +
     ylab("Adjusted P Value") +
-    xlab("Top Attractors") +
+    xlab("Top Stationary Distribution Elements") +
     geom_hline(yintercept = 0.05, color = "dark red")
   
 ggsave("visualizations/top-adjusted-p.png", p, width = width, height = height)
 
-xs <- x[seq_len(ms),]
+xs <- x[seq_len(ms),] %>%
+  rename(tail_p = prob) %>%
+  filter(type == "Tail Probability")
+
 xs$adj_tail_p <- p.adjust(xs$tail_p, method = "fdr")
+xs <- xs[xs$adj_tail_p <= 0.05,]
+
 saveRDS(xs, "artifacts/attractor-indices.rds")
 
 ni <- readRDS("artifacts/mobility-graph.rds")
@@ -149,3 +164,6 @@ nis <- nis %N>%
   mutate(weak_comp = wc$membership, strong_comp = sc$membership)
 
 saveRDS(nis %N>% as_tibble(), "artifacts/attractor-components.rds")
+
+ns <- nis %N>% as_tibble()
+table(ns$weak_comp, ns$strong_comp)
