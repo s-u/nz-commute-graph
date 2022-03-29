@@ -26,8 +26,7 @@ g <- tm |>
 comps <- components(g, mode = "strong")
 
 g <- g %N>%
-  mutate(component = comps$membership,
-         stat_dist = NA)
+  mutate(component = comps$membership)
 
 # for each of the components, get the stationary distribution.
 
@@ -49,10 +48,8 @@ ni <- foreach (comp = unique(comps$membership), .combine = bind_rows) %do% {
     as_tibble()
 }
 
-ni <- ni[match((g %N>% as_tibble())$name, ni$name),]
-assert(all( (g %N>% as_tibble())$name == ni$name ))
 g <- g %N>%
-  mutate(stat_dist = ni$stat_dist)
+  left_join(ni, by = c("name", "component"))
 
 saveRDS(g, "artifacts/mobility-graph.rds")
 saveRDS(g %N>% as_tibble(), "artifacts/strong-components-and-stat-distr.rds")
@@ -73,7 +70,7 @@ nia <- as_adjacency_matrix(ni, attr = "count")
 
 nia <- nia + t(nia)
 
-gnia <- as_tbl_graph(nia, directed = FALSE)
+gnia <- as_tbl_graph(as.matrix(nia), directed = FALSE)
 
 coms <- gnia |> cluster_louvain()
 

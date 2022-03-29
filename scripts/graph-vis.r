@@ -118,6 +118,17 @@ num_signif <-
     NA_real_
   )
 
+for (adj in c("holm", "hochberg", "hommel", "bonferroni", "BH", "BY")) {
+  which.max(
+    vapply(
+      seq_along(tail_p), 
+      function(i) 
+        sum(p.adjust(tail_p[seq_len(i)], method = adj) < 0.05),
+      NA_real_
+    )
+  ) %>% print()
+}
+
 p <- tibble(ns = num_signif, x = seq_along(num_signif)) %>%
   ggplot(aes(x = x, y = ns)) +
   geom_line() +
