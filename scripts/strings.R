@@ -21,11 +21,19 @@ dyn.load("src/foldw.so")
 
 l <- mclapply(seq_along(a), function(i) tryCatch({
     if (i %% 100 == 0) cat(i, "\n")
-    if (is.character(a[[i]])) return (a[[i]])
-    ls   = st_linestring(a[[i]]$points[,2:1])
-    lsnz = st_transform(st_sfc(ls, crs=4326), st_crs(geo))
-    lsl  = st_as_sf(data.frame(x=a[[i]]$points[,2], y=a[[i]]$points[,1]), coords=c("x","y"), crs=4326)
+    if (is.character(a[[i]]) || !length(a[[i]])) return (a[[i]])
+    ls   = st_linestring(a[[i]][,2:1])
+    lsc  = st_sfc(ls, crs=4326)
+
+    lsnz = st_transform(lsc, st_crs(geo))
     int  = st_intersection(lsnz, geo)
+    ## int can flip-flop, so need to find the boundary cases
+
+    lss  = st_segmentize(lsc, 100) ## this doesn't work on ls alone - needs lsc
+    ## extract points from linestring for the within operation
+    ptm  = as.matrix(lss[[1]])
+    lsl  = st_as_sf(data.frame(x=ptm[,1], y=ptm[,2]), coords=c("x","y"), crs=4326)
+    ## within for each point
     wid <- st_is_within_distance(lsl, geoll[attr(int, "idx")[,2]], 10)
     fwid = .Call("foldw", wid)
     trs = attr(int, "idx")[rle(fwid)$values,2]
