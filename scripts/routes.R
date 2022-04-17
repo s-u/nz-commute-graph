@@ -1,6 +1,9 @@
 ## this computes routes from all pairs
-## NOTE: quite computationally heavy, assumes it's
-## ok to bash the machine with 64 parallel jobs
+## NOTE: this requires ghroute version >= 0.2 which provides
+## far more efficent bulk routing
+
+## This has to be set before any packages are loaded
+options(java.parameters="-Xmx8g")
 
 packages <- c("ghroute", "proj4", "parallel")
 for (pkg in packages) library(pkg, character.only=TRUE)
@@ -22,25 +25,14 @@ jtw$w.lon = ll.w$x
 # remove same-SA commutes
 tr = jtw[jtw$SA2_code_usual_residence_address != jtw$SA2_code_workplace_address,]
 
-saveRDS(tr, file="artifacts/pairs.rds")
-
-## parallel
-s = split(tr, list(shard=as.character(as.integer(1:nrow(tr)/1500))))
+saveRDS(tr, file="artifacts/transitions.rds")
 
 t <- Sys.time()
 
 cache.dir <- paste0("osm/gh/routing-graph-cache-", Sys.info()["user"])
-res = parallel::mclapply(s, function(tr) {
-  library(ghroute)
-  router("osm/new-zealand-latest.osm.pbf", cache.dir)
-  lapply(seq.int(nrow(tr)), function(i)
-    tryCatch(route(tr$r.lat[i], tr$r.lon[i], tr$w.lat[i], tr$w.lon[i])[[1]][c(1,2,3,6)],
-      error=function(e) { if (inherits(e, "GHRoutingError")) e$errors$toString() else e }))
-  }, mc.cores=64)
 
-as.numeric(Sys.time()) - as.numeric(t)
-
-r = res[order(as.integer(names(res)))]
-rt = do.call(c, r)
+router("osm/new-zealand-latest.osm.pbf", cache.dir)
+rt = rts2list(route(as.matrix(tr[,c("r.lat","r.lon", "w.lat", "w.lon")]), threads=32), nrow(tr))
+print(as.numeric(Sys.time()) - as.numeric(t))
 
 saveRDS(rt, file="artifacts/routes-car.rds")
