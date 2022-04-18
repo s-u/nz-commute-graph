@@ -16,6 +16,8 @@ if (is.null(year)) stop("strings are too old (no year included) please re-run st
 ## create pairs from each string with counts
 ps = lapply(seq_along(s), function(i) {
     si = s[[i]]
+    si = si[!is.na(si)]
+    if (length(si) > 1) si = si[c(TRUE, diff(si) != 0)]
     if (is.numeric(si) && length(si) > 1) {
        cbind(route=i, from=si[-length(si)], to=si[-1], count=cts[i])
     } else NULL
