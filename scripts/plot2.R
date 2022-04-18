@@ -3,10 +3,15 @@ for (pkg in packages) library(pkg, character.only=TRUE)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) stop("Please run this from the project root")
 
-sa = readRDS("artifacts/sa2.rds")
+year <- if (nzchar(year <- Sys.getenv("YEAR"))) as.integer(year)
+cfn <- function(what) if (is.null(year)) paste0("artifacts/", what, ".rds") else paste0("artifacts/", what, "-", year, ".rds")
+
+sa = readRDS(cfn("sa2"))
+if (is.null(year)) year <- as.integer(substr(names(sa)[1], 4, 7))
+
 geo = st_geometry(sa)
 geoll = st_transform(geo, crs=4326)
-g=readRDS("artifacts/trans-matrix.rds")
+g=readRDS(cfn("trans-matrix"))
 gc = t(sapply(geoll, st_centroid))
 
 ## tag pairs with one ID

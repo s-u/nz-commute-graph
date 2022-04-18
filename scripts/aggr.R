@@ -2,16 +2,18 @@ if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a
 
 if (!file.exists("artifacts/strings.rds")) stop("Please run strings.R first")
 
-tr = readRDS("artifacts/transitions.rds")	
+year <- if (nzchar(year <- Sys.getenv("YEAR"))) as.integer(year)
+cfn <- function(what) if (is.null(year)) paste0("artifacts/", what, ".rds") else paste0("artifacts/", what, "-", year, ".rds")
+
+s = readRDS(cfn("strings"))
+year <- attr(s, "year")
+if (is.null(year)) stop("strings are too old (no year included) please re-run strings.R")
+
+tr = readRDS("artifacts/transitions.rds")
 tr0 = function(x) { x[x < 0] = 0; x }
 
 ## car-related transitions
 cts = rowSums(tr0(tr[,10:12]))
-
-s = readRDS("artifacts/strings.rds")
-
-year <- attr(s, "year")
-if (is.null(year)) stop("strings are too old (no year included) please re-run strings.R")
 
 ## create pairs from each string with counts
 ps = lapply(seq_along(s), function(i) {
