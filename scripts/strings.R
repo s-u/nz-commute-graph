@@ -3,6 +3,11 @@
 ## When on the edge, it will stay in the same polygon
 ## if possible to avoid flip-flopping.
 
+## which year to use for shape files?
+shp.year <- 2018
+## max distance of a segment (in meters)
+max.segment <- 100
+
 packages <- c("sf", "parallel")
 for (pkg in packages) library(pkg, character.only=TRUE)
 
@@ -11,7 +16,10 @@ if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a
 if (!file.exists("artifacts/routes-car.rds")) stop("Please run routes.R first")
 
 a=readRDS("artifacts/routes-car.rds")
-d=st_read("data/statistical-area-2-2018-clipped-generalised.shp")
+shpf <- paste0("data/statistical-area-2-", shp.year, "-clipped-generalised.shp")
+if (!file.exists(shpf)) stop("Shapefile for year ", shp.year, " don't seem to exist - try another year?")
+d=st_read(shpf)
+saveRDS(d, file=paste0("artifacts/sa2-", shp.year, ".rds"))
 geo=st_geometry(d)
 geoll = st_transform(geo, crs=4326)
 
@@ -29,7 +37,7 @@ l <- mclapply(seq_along(a), function(i) tryCatch({
     int  = st_intersection(lsnz, geo)
     ## int can flip-flop, so need to find the boundary cases
 
-    lss  = st_segmentize(lsc, 100) ## this doesn't work on ls alone - needs lsc
+    lss  = st_segmentize(lsc, max.segment) ## this doesn't work on ls alone - needs lsc
     ## extract points from linestring for the within operation
     ptm  = as.matrix(lss[[1]])
     lsl  = st_as_sf(data.frame(x=ptm[,1], y=ptm[,2]), coords=c("x","y"), crs=4326)
@@ -39,4 +47,10 @@ l <- mclapply(seq_along(a), function(i) tryCatch({
     trs = attr(int, "idx")[rle(fwid)$values,2]
 }, error=function(e) e), mc.cores=64)
 
-saveRDS(l, file="artifacts/strings.rds")
+attr(l, "year") <- as.integer(shp.year)
+
+saveRDS(l, file=paste0("artifacts/strings-", shp.year, ".rds"))
+
+## create symlink to the latest file
+system(paste0("ln -sfn strings-", shp.year, ".rds artifacts/strings.rds"))
+system(paste0("ln -sfn sa2-", shp.year, ".rds artifacts/sa2.rds"))

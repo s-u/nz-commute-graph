@@ -10,6 +10,9 @@ cts = rowSums(tr0(tr[,10:12]))
 
 s = readRDS("artifacts/strings.rds")
 
+year <- attr(s, "year")
+if (is.null(year)) stop("strings are too old (no year included) please re-run strings.R")
+
 ## create pairs from each string with counts
 ps = lapply(seq_along(s), function(i) {
     si = s[[i]]
@@ -20,12 +23,15 @@ ps = lapply(seq_along(s), function(i) {
 
 ## all pairs + counts
 m = do.call(rbind, ps)
-saveRDS(m, file="artifacts/full-matrix.rds")
+saveRDS(m, file=paste0("artifacts/full-matrix-", year, ".rds"))
 
 ## aggregate by pair
 ag = aggregate(m[,4], list(from=m[,2], to=m[,3]), sum)
 names(ag)[3] = "count"
-saveRDS(ag, file="artifacts/trans-matrix.rds")
+saveRDS(ag, file=paste0("artifacts/trans-matrix-", year, ".rds"))
+
+system(paste0("ln -sfn full-matrix-", year, ".rds artifacts/full-matrix.rds"))
+system(paste0("ln -sfn trans-matrix-", year, ".rds artifacts/trans-matrix.rds"))
 
 ## to match our index to SA2s
 ## sa = st_read("data/statistical-area-2-2018-clipped-generalised.shp")
