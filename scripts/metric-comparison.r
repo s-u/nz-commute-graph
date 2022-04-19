@@ -111,7 +111,7 @@ sa$centroid <- st_transform(sa$centroid, crs = 4326)
 
 library(foreach)
 library(doMC)
-registerDoMC(12)
+registerDoMC(100)
 
 sa2_inds <- foreach(i = seq_along(rt), .combine = c) %dopar% {
   if (!is.null(rt[[i]])) {
