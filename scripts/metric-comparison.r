@@ -109,32 +109,40 @@ sa$geometry <- st_transform(sa$geometry, crs = 4326)
 sa$centroid <- st_centroid(sa$geometry)
 sa$centroid <- st_transform(sa$centroid, crs = 4326)
 
-library(foreach)
-library(doMC)
-registerDoMC(100)
+if (!file.exists("artifacts/total-traffic-count.rds")) {
+  library(foreach)
+  library(doMC)
+  registerDoMC(100)
 
-sa2_inds <- foreach(i = seq_along(rt), .combine = c) %dopar% {
-  if (!is.null(rt[[i]])) {
-    ps <- as.data.frame(rt[[i]]) |>
-        st_as_sf(coords = c("lon", "lat"), crs = 4326) |>
-        st_geometry()
-    d <- st_distance(ps, sa$centroid)
-    apply(d, 1, which.min)
-  } else {
-    NULL
+  sa2_inds <- foreach(i = seq_along(rt), .combine = c) %dopar% {
+    if (!is.null(rt[[i]])) {
+      ps <- as.data.frame(rt[[i]]) |>
+          st_as_sf(coords = c("lon", "lat"), crs = 4326) |>
+          st_geometry()
+      unlist(st_within(ps, sa$geometry))
+    } else {
+      NULL
+    }
   }
+
+  tc <- tibble(name = sa2_inds) |>
+    group_by(name) |>
+    summarize(n = n()) |>
+    mutate(name = as.character(name))
+
+  saveRDS(tc, "artifacts/total-traffic-count.rds")
+} else {
+  tc <- readRDS("artifacts/total-traffic-count.rds")
 }
-
-tc <- tibble(name = sa2_inds) |>
-  group_by(name) |>
-  summarize(n = n()) |>
-  mutate(name = as.character(name))
-
-saveRDS(tc, "artifacts/total-traffic-count.rds")
 
 # Sanity check:
 # plot(sa[unique(apply(d, 1, which.min)),]$geometry)
 # plot(ps, col = "red", type = "l", add = TRUE)
 
+
+x <- left_join(x, tc |> rename(`Total traffic` = n), by = "name")
+
+ggplot(x, aes(x = stat_dist, y = `Total traffic`)) +
+  geom_point()
 
 
