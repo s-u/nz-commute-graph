@@ -45,7 +45,7 @@ l <- mclapply(seq_along(a), function(i) tryCatch({
     wid <- st_is_within_distance(lsl, geoll[attr(int, "idx")[,2]], 10)
     fwid = .Call("foldw", wid)
     trs = attr(int, "idx")[rle(fwid)$values,2]
-}, error=function(e) e), mc.cores=64)
+}, error=function(e) e), mc.cores=12)
 
 attr(l, "year") <- as.integer(shp.year)
 

@@ -73,7 +73,6 @@ saveRDS(pte, "artifacts/prob-transition-matrix-evening.rds")
 ordm <- order(stationary_distr(ptm)[,1], decreasing = TRUE)
 orde <- order(stationary_distr(pte)[,1], decreasing = TRUE)
 
-stop("here")
 x <- tibble(
   vertex_id = as.integer(colnames(ptm))[ordm],
   `Stat. Distr.` = stationary_distr(ptm)[,1][ordm],
