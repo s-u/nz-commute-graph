@@ -38,7 +38,7 @@ npx topo2geo - < "$FN-s.topojson" > "$FN-s.geojson"
 
 echo " - convert from GeoJSON to $2"
 ## TopoJSON does not preserve CRS so we force-copy it from the original
-Rscript -e 'd=sf::read_sf("'$FN'-s.geojson");s=sf::read_sf("'$1'");sf::st_crs(d)=NA;sf::st_crs(d)=sf::st_crs(s);sf::write_sf(d, "'$2'")'
+Rscript -e 'd=sf::read_sf("'$FN'-s.geojson");s=sf::read_sf("'$1'");sf::st_crs(d)=NA;sf::st_crs(d)=sf::st_crs(s);sf::write_sf(d, "'$2'", layer_options = "ENCODING=UTF-8", delete_layer = TRUE)'
 
 echo " - clean up temporary files"
 rm -f "$FN.geojson" "$FN.topojson" "$FN-s.topojson" "$FN-s.geojson"
