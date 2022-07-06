@@ -1,21 +1,16 @@
 packages <- c("sf", "snippets", "RColorBrewer")
-for (pkg in packages) library(pkg, character.only=TRUE)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) stop("Please run this from the project root")
+
+source("scripts/common.R")
+
+use.packages(packages)
 
 sa = st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 geo = st_geometry(sa)
 geoll = st_transform(geo, crs=4326)
 
-tiles <- function() osmap(cache.dir="tmp/osm/l1", zoom=13, tiles.url="http://127.0.0.1:8080/styles/basic-preview/")
-col.fn <- function(x, fn=sqrt, col=heat.colors(32, alpha=0.7)) col[fn(x / max(x, na.rm=TRUE)) * (length(col) - 1) + 1]
-
-## for paper:
-for.paper <- identical(Sys.getenv("FOR_PAPER"),"1")
-dev.start <- if (for.paper) function() pdf(paste0("visualizations/plot-attr.pdf"), 8, 8) else function() NULL
-dev.end <- if (for.paper) function() dev.off() else function() NULL
-
-dev.start()
+dev.start("plot-attr", 8, 8)
 par(mar=rep(0,4))
 
 bb = c(174.70, 174.92753, -36.94245, -36.8)
@@ -43,6 +38,9 @@ for (i in seq_along(ageo)) {
 
 dev.end()
 
+dev.start("loci-maps", 8.3, 11.7)
+par(mar=rep(0,4))
+
 ## split the loci according to areas, i.e., join loci
 ## that are close to each other. We just use centroid
 ## distance for this.
@@ -56,7 +54,7 @@ tgeo = st_geometry(ta)
 tgeoll = st_transform(tgeo, crs=4326)
 
 ## draw scale measure
-dscale <- function(dist=1) {
+dscale <- function(dist=1, lwd=3) {
     p <- par("usr")
     f <- cos(mean(p[3:4])/180*pi)
     km <- dist / 111.3194 
@@ -66,9 +64,9 @@ dscale <- function(dist=1) {
     x1 <- p[2] - 0.5 * cmx
     x2 <- p[2] - 0.5 * cmx - c
     y  <- p[3] + 0.5 * cmy
-    segments(x1, y, x2, y, lend=1, lwd=4)
+    segments(x1, y, x2, y, lend=1, lwd=lwd)
     segments(c(x1, x2), y - 0.3 * cmy, c(x1, x2), y + 0.3 * cmy, lend=1)
-    text(mean(c(x1, x2)), y + 0.5 * cmy, paste(dist, "km"))
+    text(mean(c(x1, x2)), y + 0.5 * cmy, paste(dist, "km"), adj=c(0.5, 0))
 }
 
 
@@ -90,8 +88,11 @@ for (i in seq_along(ageo))
 
 dscale(100)
 
+xsd = sapply(split(seq_along(lg), lg), function(o)
+    max(do.call("rbind", asc[o])$sd0))
+
 ## draw the locations individually
-for (o in split(seq_along(lg), lg)) {
+for (o in split(seq_along(lg), lg)[order(xsd, decreasing=TRUE)]) {
     bb = st_bbox(do.call("c",ageo[o]))[c(1,3,2,4)]
     min.latd <- 0.1
     if (diff(bb[3:4]) < min.latd) bb[3:4] <- mean(bb[3:4]) + min.latd * c(-0.5, 0.5)
@@ -115,7 +116,7 @@ for (o in split(seq_along(lg), lg)) {
         #text(cx[1],cx[2], names(ageo)[i])
     }
 
-    text(bb[1], bb[4], ptn[li[o[1]]], cex=2, adj=c(-0.2, 2.5))
+    text(bb[1], bb[4], ptn[li[o[1]]], cex=1.6, adj=c(-0.2, 2.5))
     box()
     dscale()
 }
