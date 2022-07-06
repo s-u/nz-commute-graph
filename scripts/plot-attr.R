@@ -10,6 +10,7 @@ sa = st_read("data/statistical-area-2-2018-clipped-generalised.shp")
 geo = st_geometry(sa)
 geoll = st_transform(geo, crs=4326)
 
+## We don't use this one anymore
 dev.start("loci-akl", 8, 8)
 par(mar=rep(0,4))
 
@@ -49,6 +50,7 @@ cd = as.matrix(dist(ct))
 li = sapply(seq_along(ageo), function(i) which(cd[i,] < 0.3)[1])
 lg = as.integer(factor(li))
 
+## we use simplified version to reduce size
 ta = st_simplify(readRDS("artifacts/nz-simpl100.rds"),,1000)
 tgeo = st_geometry(ta)
 tgeoll = st_transform(tgeo, crs=4326)
@@ -66,13 +68,14 @@ for (i in unique(li)) # points(ct[i,1],ct[i,2], cex=2, col=2, pch=19)
 
 for (i in seq_along(ageo))
     plot(ageo[[i]], add=TRUE, col="#ff8080", border="#ff8080")
+box()
 
 dscale(100)
 
 dev.end()
 
 
-dev.start("loci-top6", 8, 11)
+dev.start("loci-top6", 8, 10)
 
 topN <- 6
 
