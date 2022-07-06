@@ -22,9 +22,23 @@ col.fn <- function(x, fn=sqrt, col=heat.colors(32, alpha=0.7)) col[fn(x / max(x,
 
 for.paper <- identical(Sys.getenv("FOR_PAPER"),"1")
 
-dev.end <- if (for.paper) function() dev.off() else function() NULL
+dev.start <- if (for.paper) function(name, ...) { cat("-- creating ", name, "\n", sep=''); pdf(paste0("visualizations/", name, ".pdf"), ...) } else function(...) NULL
+dev.end <- if (for.paper) function() invisible(dev.off()) else function() NULL
 
 year <- if (nzchar(year <- Sys.getenv("YEAR"))) as.integer(year)
 
 cfn <- function(what, suff=".rds") if (is.null(year)) paste0("artifacts/", what, suff) else paste0("artifacts/", what, "-", year, suff)
 
+use.packages <- function(packages, install=TRUE) {
+    ok <- sapply(packages, require, character.only=TRUE)
+    if (!all(ok)) {
+        if (install) {
+            message("Attempting to install: ", paste(packages[!ok], collapse=","))
+            cran <- tryCatch(getOption("repos")["CRAN"], error=function(e) "@CRAN@")
+            if (any(cran == "@CRAN@")) cran <- "https://cran.R-project.org"
+            install.packages(packages[!ok], repos=c(cran, "https://rforge.net"))
+            Recall(packages, FALSE)
+        } else stop("Cannot proceed, following packages are not available: ", paste(packages[!ok], collapse=","))
+    }
+    packages
+}
