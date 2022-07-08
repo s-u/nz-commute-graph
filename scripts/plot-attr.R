@@ -40,7 +40,7 @@ for (i in seq_along(ageo)) {
 dev.end()
 
 dev.start("loci-nz", 7, 7)
-par(mar=rep(0,4))
+par(mar=rep(0.01,4))
 
 ## split the loci according to areas, i.e., join loci
 ## that are close to each other. We just use centroid
@@ -57,7 +57,7 @@ tgeoll = st_transform(tgeo, crs=4326)
 
 ## draw north-island loci overview
 ptn = c("Rotorua", "Wellington", "Wellington", "Palmerston\n  North", "Hamilton",
-        "Auckland", "Auckland", "Auckland", "Kaitaia", "Kerikeri")
+        "Auckland", "Auckland", "Auckland", "Kait\u0101ia", "Kerikeri")
 bb = st_bbox(geoll[as.integer(a$name)])[c(1,3,2,4)]
 plot(bb[1:2], bb[3:4], ty='n', axes=F, asp=1/cos(mean(bb[3:4])/180*pi))
 plot(tgeoll, col="#ffffe0", add=TRUE, border="#b0b0b0")
