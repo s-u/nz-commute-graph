@@ -125,20 +125,27 @@ sa$from = numeric(nrow(sa))
 sa$from[m.from$from] = m.from$x
 
 # from to -- from and to are almost the same by definition
+pdist <- function(val, title, lfac=1) {
 dev.start()
 par(mar=rep(0,4))
 plot(bb0[1:2], bb0[3:4], ty='n', axes=F, asp=1/cos(mean(bb0[3:4])/180*pi))
 do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
-plot(geoll[in.view], add=T, col=col.fn(sa$to[in.view]), border="#00000040")
+vmax <- max(val, na.rm=TRUE)
+plot(geoll[in.view], add=T, col=col.fn(val), border="#00000040")
 dscale()
 
-v = c(5000, 10000, 20000, 40000, 60000)
+v = c(5000, 10000, 20000, 40000, 60000) * lfac
 op = par(family="Courier")
-l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/max(sa$to[in.view], na.rm=TRUE)) * 31 + 1],
-           pch=22, bg="white", pt.cex=2, inset=c(0.03, 0.07), title="  Commuters  ", title.col="white", col=1, cex=1.2)
+l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/vmax) * 31 + 1],
+           pch=22, bg="white", pt.cex=3, inset=c(0.03, 0.07), title=paste(" ",title," "), title.col="white", col=1, cex=1.6)
 par(op)
 ltop = l$rect$top + 0.2*sh
 rect(l$rect$left, ltop - sh, l$rect$left + l$rect$w, ltop + sh, col="black")
-text(l$rect$left + l$rect$w / 2, ltop, "In-flows", cex=1.2, font=2, col="white")
-
+text(l$rect$left + l$rect$w / 2, ltop, title, cex=1.6, font=2, col="white")
 dev.end()
+}
+
+pdist(sa$to[in.view], "In-flows")
+pdist(sa$from[in.view], "Out-flows")
+pdist(pmin(sa$to[in.view], sa$from[in.view], na.rm=TRUE), "Through-flows")
+pdist(sa$to[in.view] + sa$from[in.view], "Total flows", 2)
