@@ -22,7 +22,7 @@ col.fn <- function(x, fn=sqrt, col=heat.colors(32, alpha=0.7)) col[fn(x / max(x,
 
 for.paper <- identical(Sys.getenv("FOR_PAPER"),"1")
 
-dev.start <- if (for.paper) function(name, ...) { cat("-- creating ", name, "\n", sep=''); pdf(paste0("visualizations/", name, ".pdf"), ...) } else function(...) NULL
+dev.start <- if (for.paper) function(name, ...) { cat("-- creating ", name, "\n", sep=''); cairo_pdf(paste0("visualizations/", name, ".pdf"), ...) } else function(...) NULL
 dev.end <- if (for.paper) function() invisible(dev.off()) else function() NULL
 
 year <- if (nzchar(year <- Sys.getenv("YEAR"))) as.integer(year)
