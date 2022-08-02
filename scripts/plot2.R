@@ -103,8 +103,10 @@ do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
 # sa$work.ct[sa$work.ct == 0] = NA ## if we ever want to show zeroes differently
 plot(geoll[in.view], add=T, col=col.fn(sa$work.ct[in.view]), border="#00000040")
 dscale()
-v = c(100, 1000, 2000, 5000, 10000, 20000)
+v = c(100, 1000, 5000, 10000, 15000, 21000)
 op = par(family="Courier")
+cat("Work:\n")
+print(range(sa$work.ct[in.view], na.rm=TRUE))
 l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/max(sa$work.ct[in.view], na.rm=TRUE)) * 31 + 1],
            pch=22, bg="white", pt.cex=2, inset=c(0.03, 0.07), title="  Commuters  ", title.col="white", col=1, cex=1.2)
 par(op)
@@ -134,7 +136,10 @@ vmax <- max(val, na.rm=TRUE)
 plot(geoll[in.view], add=T, col=col.fn(val), border="#00000040")
 dscale()
 
-v = c(5000, 10000, 20000, 40000, 60000) * lfac
+cat("In-flows:\n")
+print(range(sa$to[in.view], na.rm=TRUE))
+v = c(5000, 20000, 40000, 50000, 65000) * lfac
+
 op = par(family="Courier")
 l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/vmax) * 31 + 1],
            pch=22, bg="white", pt.cex=3, inset=c(0.03, 0.07), title=paste(" ",title," "), title.col="white", col=1, cex=1.6)

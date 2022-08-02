@@ -33,3 +33,31 @@ d=structure(list(city = c("Auckland", "Wellington", "Hamilton",
 text(d$lng, d$lat, d$city)
 
 if (for.paper) dev.off()
+
+
+co = scan("artifacts/directed-community.txt", list(id=1L, community=1L))
+
+for.paper <- identical(Sys.getenv("FOR_PAPER"),"1")
+if (for.paper) pdf("visualizations/plot5.pdf", 8, 8)
+
+par(mar=rep(0,4))
+old.pal <- palette()
+cols <- RColorBrewer::brewer.pal(9,"Set1")
+cols[6] <- "#a0c022"
+palette(cols)
+plot(geoll[co$id], col=(co$community - 1L) %% 9 + 1,
+     border=NA)
+plot(geoll[!seq.int(length(geoll)) %in% co$id],
+     col="#ffffb0", add=TRUE, border=NA)
+palette(old.pal)
+
+if (for.paper) dev.off()
+
+list(x = c(174.233194763043, 175.207129283078), y = c(-36.431107713602, 
+-37.0708213871434))
+
+par(mar=rep(0,4))
+plot(geoll[co$id], col=(co$community - 1L) %% 9 + 1,
+     border=NA, xlim=range(q$x), ylim=range(q$y))
+plot(geoll[!seq.int(length(geoll)) %in% co$id],
+     col="#ffffb0", add=TRUE, border=NA)
