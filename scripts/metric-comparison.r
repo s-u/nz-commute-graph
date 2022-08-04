@@ -4,6 +4,7 @@ library(ggplot2)
 library(tidyr)
 library(sf)
 library(parallel)
+library(patchwork)
 
 if (!file.exists("data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv")) {
 
@@ -63,22 +64,33 @@ hid <- tr |>
 x <- left_join(x, hid, by = "name")
 x[[5]][is.na(x[[5]])] <- 0
 
+# First, fix this so that we have non-repeated sa2's.
+# Do analysis for weighted out degree minus weighted in degree.
 if (!file.exists("artifacts/total-traffic-count.rds")) {
+  library(purrr)
   library(foreach)
   library(doMC)
-  registerDoMC(100)
+  registerDoMC()
+  rt <- readRDS("artifacts/routes-car.rds")
 
-  sa2_inds <- foreach(i = seq_along(rt), .combine = c) %dopar% {
+  sa2_inds <- foreach(i = seq_along(rt), .combine = c, .inorder = FALSE) %dopar% {
+    if (i %% 100 == 0) {
+      cat(i, "of", length(rt), "\n")
+    }
     if (!is.null(rt[[i]])) {
       ps <- as.data.frame(rt[[i]]) |>
           st_as_sf(coords = c("lon", "lat"), crs = 4326) |>
           st_geometry()
-      unlist(st_within(ps, sa$geometry))
+      ps <- st_transform(ps, st_crs(sa$geometry[1]))
+      ints <- map(unclass(st_intersects(sa$geometry, ps)), length) |>
+        unlist() |>
+        as.logical() |>
+        which()
+      
     } else {
-      NULL
+      c()
     }
   }
-
   tc <- tibble(name = sa2_inds) |>
     group_by(name) |>
     summarize(n = n()) |>
