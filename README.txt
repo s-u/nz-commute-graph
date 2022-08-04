@@ -175,7 +175,7 @@ presented to reproduce preprocessing, analysis, and visualization generation.
     1. dplyr
     2. tibble
     3. tidygraph
-    4. graphmobility (https://github.com/kaneplusplus/graphmobility)
+    4. graphmobility (https://github.com/kaneplusplus/graphmobility/releases/tag/0.1.0)
     5. igraph
     6. foreach
     7. checkmate
@@ -212,7 +212,7 @@ presented to reproduce preprocessing, analysis, and visualization generation.
   - Package dependencies
     1. tidygraph
     2. igraph
-    3. graphmobility (https://github.com/kaneplusplus/graphmobility)
+    3. graphmobility (https://github.com/kaneplusplus/graphmobility/releases/tag/0.1.0)
     4. foreach
     5. doMC
     6. ggplot2
@@ -234,7 +234,7 @@ presented to reproduce preprocessing, analysis, and visualization generation.
     1. ggplot2
     2. dplyr
     3. tidyr
-    4. graphmobility (https://github.com/kaneplusplus/graphmobility)
+    4. graphmobility (https://github.com/kaneplusplus/graphmobility/releases/tag/0.1.0)
     5. igraph
     6. tidygraph
   - Input file dependencies
