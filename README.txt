@@ -115,12 +115,12 @@ presented to reproduce preprocessing, analysis, and visualization generation.
 
 1. routes.R
   - Package dependencies
-  - Input file dependencies
     1. ghroute (https://rforge.net/ghroute/)
     2. proj4 (https://rforge.net/proj4/)
     3. parallel 
-    4. osm/new-zealand-latest.osm.pbf (can be created with "make -C osm")
-    5. data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv
+  - Input file dependencies
+    1. osm/new-zealand-latest.osm.pbf (can be created with "make -C osm")
+    2. data/2018-census-main-means-of-travel-to-work-by-statistical-a.csv
   - Output file dependencies
     1. artifacts/transitions.rds
     2. artifacts/routes-car.rds
