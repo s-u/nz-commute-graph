@@ -41,12 +41,11 @@ SMTData = dataset(
 
 SMTModel = nn_module(
   "SMTModel",
-  initialize = function(seq_len, num_tokens, device = "cpu", sigma = 600) {
+  initialize = function(seq_len, num_tokens, device = "cpu") {
     self$seq_len = seq_len
     self$num_tokens = num_tokens
 
     # Glorot (Xavier) Initialization
-    #xg = sqrt(sigma / (self$seq_len * self$num_tokens))
     xg = 1
     wq = matrix(
       runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
@@ -99,7 +98,6 @@ SMTModel = nn_module(
 
       # softmax(Attention * W0 + b0)
       r = nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 1)
-#      torch_argmax(r, 2)$to(dtype = torch_float())
     }
     # Is it batched?
     if (length(x$shape) == 2) {
