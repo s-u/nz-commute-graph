@@ -4,6 +4,7 @@ library(purrr)
 library(dplyr)
 library(tidyr)
 
+device = "cuda" # Simon: Change this to cuda.
 train_model = TRUE
 epochs = 1000
 if (!exists("x")) {
@@ -40,67 +41,48 @@ SMTData = dataset(
 
 SMTModel = nn_module(
   "SMTModel",
-  initialize = function(seq_len, num_tokens, sigma = 600) {
+  initialize = function(seq_len, num_tokens, device = "cpu", sigma = 600) {
     self$seq_len = seq_len
     self$num_tokens = num_tokens
 
-    
-    if (1) {
-      # Glorot (Xavier) Initialization
-      #xg = sqrt(sigma / (self$seq_len * self$num_tokens))
-      xg = 1
-      wq = matrix(
-        runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-        nrow = self$num_tokens,
-        ncol = self$seq_len
-      )
-      wk = matrix(
-        runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-        nrow = self$num_tokens,
-        ncol = self$seq_len
-      )
-      wv = matrix(
-        runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-        nrow = self$num_tokens,
-        ncol = self$seq_len
-      )
-      w0 = matrix(
-        runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-        nrow = self$seq_len,
-        ncol = self$num_tokens
-      )
-      b0 = matrix(
-        runif(self$num_tokens, min = -xg, max = xg),
-        nrow = 1,
-        ncol = self$num_tokens
-      )
-      self$Wq = torch_tensor(wq, requires_grad = TRUE) |>
-        nn_parameter()
-      self$Wk = torch_tensor(wk, requires_grad = TRUE) |>
-        nn_parameter()
-      self$Wv = torch_tensor(wv, requires_grad = TRUE) |>
-        nn_parameter()
-      self$W0 = torch_tensor(w0, requires_grad = TRUE) |>
-        nn_parameter()
-      self$b0 = torch_tensor(b0, requires_grad = TRUE) |>
-        nn_parameter()
-    } else {
-      self$Wq = nn_parameter(
-        torch_randn(self$num_tokens, self$seq_len, requires_grad = TRUE) 
-      )
-      self$Wk = nn_parameter(
-        torch_randn(self$num_tokens, self$seq_len, requires_grad = TRUE) 
-      )
-      self$Wv = nn_parameter(
-        torch_randn(self$num_tokens, self$seq_len, requires_grad = TRUE) 
-      )
-      self$W0 = nn_parameter(
-        torch_randn(self$seq_len, self$num_tokens, requires_grad = TRUE) 
-      )
-      self$b0 = nn_parameter(
-        torch_randn(1, self$num_tokens, requires_grad = TRUE)
-      )
-    }
+    # Glorot (Xavier) Initialization
+    #xg = sqrt(sigma / (self$seq_len * self$num_tokens))
+    xg = 1
+    wq = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    wk = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    wv = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    w0 = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$seq_len,
+      ncol = self$num_tokens
+    )
+    b0 = matrix(
+      runif(self$num_tokens, min = -xg, max = xg),
+      nrow = 1,
+      ncol = self$num_tokens
+    )
+    self$Wq = torch_tensor(wq, requires_grad = TRUE, device = self$device) |>
+      nn_parameter()
+    self$Wk = torch_tensor(wk, requires_grad = TRUE, device = self$device) |>
+      nn_parameter()
+    self$Wv = torch_tensor(wv, requires_grad = TRUE, device = self$device) |>
+      nn_parameter()
+    self$W0 = torch_tensor(w0, requires_grad = TRUE, device = self$device) |>
+      nn_parameter()
+    self$b0 = torch_tensor(b0, requires_grad = TRUE, device = self$device) |>
+      nn_parameter()
   },
   forward = function(x) {
     forward_single = function(x) {
@@ -135,10 +117,10 @@ SMTModel = nn_module(
 )
 
 smt_data = SMTData(x)
-a = smt_data[1]
+#a = smt_data[1]
 
-model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
-model(a$x)
+#model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
+#model(a$x)
 
 
 my_loss = function(input, target) {
@@ -177,19 +159,20 @@ if (train_model) {
     ) |>
     set_hparams(
       seq_len = smt_data$seq_len, 
-      num_tokens = smt_data$num_tokens
+      num_tokens = smt_data$num_tokens,
+      device = device
     ) |>
   #  set_opt_hparams(lr = 1e-4) |>
     fit(
       dataloader(
-        SMTData(xcv |> filter(!(cv %in% 1:2))),
+        SMTData(xcv |> filter(!(cv %in% 1:2)), device = device),
         batch_size = 128,
         shuffle = TRUE,
         num_workers = 0,
       ),
       epochs = epochs,
       valid_data = dataloader(
-        SMTData(xcv |> filter(cv == 1)),
+        SMTData(xcv |> filter(cv == 1), device = device),
         batch_size = 32,
         shuffle = TRUE,
         num_workers = 0,
