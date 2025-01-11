@@ -4,6 +4,8 @@ library(purrr)
 library(dplyr)
 library(tidyr)
 
+model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
+
 train_model = TRUE
 epochs = 1000
 ## you could try "mps" on arm64 macOS
@@ -20,6 +22,13 @@ if (!exists("x")) {
   x$y = t(sapply(x$y, as.integer)) + 1L
   x$n = nrow(x$x)
 
+  ## padding variant?
+  if (nzchar(Sys.getenv("PAD"))) {
+     cat("Using padding instead of 0\n")
+     .pad <- function(x) { i=match(1L, x); if (!is.na(i)) x[i:length(x)]=x[i-1]; x }
+     x$x = t(apply(x$x, 1, .pad))
+     x$y = t(apply(x$y, 1, .pad))
+  }
   set.seed(1)
   ## assign each index a cv group
   icv = sample(1:10, max(x$ind), replace=TRUE)
@@ -188,12 +197,12 @@ if (train_model) {
       )
     )
 
-  luz_save(model, "morning-seq.luz")
+  luz_save(model, model_fn)
 } else {
-  model = luz_load("morning-seq.luz")
+  model = luz_load(model_fn)
 }
 
-holdouts = x |> cv.filter(1) |> head(10000)
+holdouts = x |> cv.filter(2) |> head(10000)
 preds = predict(
   model, 
   dataloader(
