@@ -4,44 +4,60 @@ library(purrr)
 library(dplyr)
 library(tidyr)
 
-device = "cuda" # Simon: Change this to cuda.
 train_model = TRUE
 epochs = 1000
+## you could try "mps" on arm64 macOS
+default_device <- if (cuda_is_available()) torch_device("cuda:0") else "cpu"
+
 if (!exists("x")) {
   x = readRDS("data/stm-data.rds")
+  ## change to a more efficient structure:
+  ## x and y are integer matrices
+  x = unclass(x)
+  attr(x,"row.names")=NULL
+  ## for some reason torch doesn't like 0 in index vectors
+  x$x = t(sapply(x$x, as.integer)) + 1L
+  x$y = t(sapply(x$y, as.integer)) + 1L
+  x$n = nrow(x$x)
+
+  set.seed(1)
+  ## assign each index a cv group
+  icv = sample(1:10, max(x$ind), replace=TRUE)
+  x$cv = icv[x$ind]
+}
+
+## filter dataset by cv group(s)
+cv.filter <- function(d, cv, inv=FALSE) {
+  ix = d$cv %in% cv
+  if (inv) ix = !ix
+  ind = d$ind[ix]
+  list(ind=ind, x=d$x[ix,], y=d$y[ix,], n=length(ind), cv=x$cv[ix])
 }
 
 SMTData = dataset(
   name = "SMTData",
-  initialize = function(x, num_tokens = max(unlist(x$y)) + 1, device = "cpu") {
+  initialize = function(x, num_tokens = max(x$y), device = default_device) {
     self$d = x
     self$num_tokens = num_tokens
-    self$seq_len = length(x$y[[1]])
+    self$seq_len = ncol(x$y)
     self$device = device
   },
-  .getitem = function(i) {
-    xm = matrix(0, nrow = self$seq_len, ncol = self$num_tokens)
-    # Encode the sequence.
-    for (j in seq_len(self$seq_len)) {
-      xm[j, self$d$x[[i]][j] + 1 ] = 1
-    }
-    ym = matrix(0, nrow = self$seq_len, ncol = self$num_tokens)
-    for (j in seq_len(self$seq_len)) {
-      ym[j, self$d$y[[i]][j] + 1] = 1
-    }
+  .getbatch = function(i) {
     list(
-      x = torch_tensor(xm, device = self$device),
-      y = torch_tensor(ym, device = self$device)
+      x = torch_tensor(self$d$x[i,], device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> torch_tensor(torch_float()),
+      y = torch_tensor(self$d$y[i,], device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> torch_tensor(torch_float())
     )
   },
   .length = function() {
-    nrow(self$d)
+    self$d$n
   }
 )
 
 SMTModel = nn_module(
   "SMTModel",
-  initialize = function(seq_len, num_tokens, device = "cpu") {
+  initialize = function(seq_len, num_tokens) {
     self$seq_len = seq_len
     self$num_tokens = num_tokens
 
@@ -72,15 +88,15 @@ SMTModel = nn_module(
       nrow = 1,
       ncol = self$num_tokens
     )
-    self$Wq = torch_tensor(wq, requires_grad = TRUE, device = self$device) |>
+    self$Wq = torch_tensor(wq, requires_grad = TRUE, device = default_device) |>
       nn_parameter()
-    self$Wk = torch_tensor(wk, requires_grad = TRUE, device = self$device) |>
+    self$Wk = torch_tensor(wk, requires_grad = TRUE, device = default_device) |>
       nn_parameter()
-    self$Wv = torch_tensor(wv, requires_grad = TRUE, device = self$device) |>
+    self$Wv = torch_tensor(wv, requires_grad = TRUE, device = default_device) |>
       nn_parameter()
-    self$W0 = torch_tensor(w0, requires_grad = TRUE, device = self$device) |>
+    self$W0 = torch_tensor(w0, requires_grad = TRUE, device = default_device) |>
       nn_parameter()
-    self$b0 = torch_tensor(b0, requires_grad = TRUE, device = self$device) |>
+    self$b0 = torch_tensor(b0, requires_grad = TRUE, device = default_device) |>
       nn_parameter()
   },
   forward = function(x) {
@@ -98,6 +114,7 @@ SMTModel = nn_module(
 
       # softmax(Attention * W0 + b0)
       r = nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 1)
+#      torch_argmax(r, 2)$to(dtype = torch_float())
     }
     # Is it batched?
     if (length(x$shape) == 2) {
@@ -115,11 +132,10 @@ SMTModel = nn_module(
 )
 
 smt_data = SMTData(x)
-#a = smt_data[1]
+a = smt_data[1]
 
-#model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
-#model(a$x)
-
+model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
+model(a$x)
 
 my_loss = function(input, target) {
   single_loss = \(inp, targ) {
@@ -139,13 +155,6 @@ my_loss = function(input, target) {
   stop("Invalid input for `my_loss`.")
 }
 
-set.seed(1)
-xcv = x |> 
-  group_by(ind) |>
-  group_nest() |>
-  mutate(cv = sample(1:10, n(), replace = TRUE)) |>
-  unnest(data)
-
 if (train_model) {
   # cv 1 is cv.
   # cv 2 is holdout.
@@ -157,20 +166,19 @@ if (train_model) {
     ) |>
     set_hparams(
       seq_len = smt_data$seq_len, 
-      num_tokens = smt_data$num_tokens,
-      device = device
+      num_tokens = smt_data$num_tokens
     ) |>
   #  set_opt_hparams(lr = 1e-4) |>
     fit(
       dataloader(
-        SMTData(xcv |> filter(!(cv %in% 1:2)), device = device),
+        SMTData(x |> cv.filter(1:2, inv=TRUE)),
         batch_size = 128,
         shuffle = TRUE,
         num_workers = 0,
       ),
       epochs = epochs,
       valid_data = dataloader(
-        SMTData(xcv |> filter(cv == 1), device = device),
+        SMTData(x |> cv.filter(1)),
         batch_size = 32,
         shuffle = TRUE,
         num_workers = 0,
@@ -185,7 +193,7 @@ if (train_model) {
   model = luz_load("morning-seq.luz")
 }
 
-holdouts = xcv |> filter(cv == 2) |> head(10000)
+holdouts = x |> cv.filter(1) |> head(10000)
 preds = predict(
   model, 
   dataloader(
@@ -207,15 +215,14 @@ decode_tensor = function(xp) {
       map(
         seq_len(xp$shape[1]),
         ~ {
-          torch_tensor(xp[.x,,], device = "cpu") |>
-            as.matrix() |>
+            xp[.x,,] |> as.matrix() |>
             decode_row()
         }
       ) 
     )
   } else if (length(xp$shape == 2)) {
     return(
-      torch_tensor(xp, device = "cpu") |>
+        xp |>
         as.matrix() |>
         decode_row()
     )
