@@ -9,7 +9,13 @@ model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 train_model = TRUE
 epochs = 1000
 ## you could try "mps" on arm64 macOS
-default_device <- if (cuda_is_available()) torch_device("cuda:0") else "cpu"
+default_device <- if (cuda_is_available()) {
+    torch_device("cuda:0") 
+  } else if (backends_mps_is_available()) {
+    torch_device("mps") 
+  } else {
+    "cpu"
+  }
 
 if (!exists("x")) {
   x = readRDS("data/stm-data.rds")
@@ -19,7 +25,8 @@ if (!exists("x")) {
   attr(x,"row.names")=NULL
   ## for some reason torch doesn't like 0 in index vectors
   x$x = t(sapply(x$x, as.integer)) + 1L
-  x$y = t(sapply(x$y, as.integer)) + 1L
+#  x$y = t(sapply(x$y, as.integer)) + 1L
+  x$y = x$y + 1
   x$n = nrow(x$x)
 
   ## padding variant?
@@ -40,24 +47,46 @@ cv.filter <- function(d, cv, inv=FALSE) {
   ix = d$cv %in% cv
   if (inv) ix = !ix
   ind = d$ind[ix]
-  list(ind=ind, x=d$x[ix,], y=d$y[ix,], n=length(ind), cv=x$cv[ix])
+  list(ind=ind, x=d$x[ix,], y=d$y[ix], n=length(ind), cv=x$cv[ix])
 }
 
 SMTData = dataset(
   name = "SMTData",
-  initialize = function(x, num_tokens = max(x$y), device = default_device) {
+  initialize = function(
+    x, 
+    num_tokens = max(max(unlist(x$y)), max(unlist(x$x))), 
+    device = default_device) {
+
     self$d = x
     self$num_tokens = num_tokens
     self$seq_len = ncol(x$y)
     self$device = device
   },
   .getbatch = function(i) {
-    list(
-      x = torch_tensor(self$d$x[i,], device=self$device) |>
-          nnf_one_hot(num_classes=self$num_tokens) |> torch_tensor(torch_float()),
-      y = torch_tensor(self$d$y[i,], device=self$device) |>
-          nnf_one_hot(num_classes=self$num_tokens) |> torch_tensor(torch_float())
-    )
+    if (length(i) == 1) {
+      list(
+        x = torch_tensor(self$d$x[i,], device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> 
+          (\(x) x[,2:x$shape[2]])() |>
+          torch_tensor(torch_float()),
+        y = torch_tensor(as.integer(self$d$y[i]), device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> 
+          (\(x) x[,2:x$shape[2]])() |>
+          torch_tensor(torch_float())
+      )
+    } else {
+      list(
+        x = torch_tensor(self$d$x[i,], device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> 
+          (\(x) x[,,2:x$shape[3]])() |>
+          torch_tensor(torch_float()),
+        y = torch_tensor(as.integer(self$d$y[i]), device=self$device) |>
+          nnf_one_hot(num_classes=self$num_tokens) |> 
+          (\(x) x[,2:x$shape[2]])() |>
+          torch_tensor(torch_float())
+      )
+    }
+  
   },
   .length = function() {
     self$d$n
@@ -68,7 +97,7 @@ SMTModel = nn_module(
   "SMTModel",
   initialize = function(seq_len, num_tokens) {
     self$seq_len = seq_len
-    self$num_tokens = num_tokens
+    self$num_tokens = num_tokens - 1
 
     # Glorot (Xavier) Initialization
     xg = 1
@@ -111,18 +140,18 @@ SMTModel = nn_module(
   forward = function(x) {
     forward_single = function(x) {
       # Calculate attention.
-      Q = torch_matmul(x, self$Wq)
+      Q = torch_matmul(x[self$seq_len,,drop = FALSE], self$Wq)
       K = torch_matmul(x, self$Wk)
       V = torch_matmul(x, self$Wv)
       if (length(K$shape) > 2) browser()
       QKt = torch_matmul(Q, K$t())
       QKt / sqrt(Q$shape[2])
       # No temperature for now.
-      alpha = nnf_softmax(QKt, 1)
+      alpha = nnf_softmax(QKt, 2)
       attention = torch_matmul(alpha, V)
 
       # softmax(Attention * W0 + b0)
-      r = nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 1)
+      nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 2)
 #      torch_argmax(r, 2)$to(dtype = torch_float())
     }
     # Is it batched?
@@ -133,7 +162,7 @@ SMTModel = nn_module(
         seq_len(x$shape[1]),
         ~ forward_single(x[.x,,])
       )
-      torch_stack(r, 1)
+      torch_cat(r, 1)
     } else {
       stop("Invalid input shape.")
     }
@@ -143,25 +172,16 @@ SMTModel = nn_module(
 smt_data = SMTData(x)
 a = smt_data[1]
 
-model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
-model(a$x)
+#model = SMTModel(smt_data$seq_len, smt_data$num_tokens)
+#model(a$x)
 
 my_loss = function(input, target) {
   single_loss = \(inp, targ) {
     eps = 1e-8
     torch_mean(torch_sum(-targ * log(inp + eps), dim = 2))
   }
-
-  if (length(input$shape) == 2) {
-    return(single_loss(input, target))
-  } else if (length(input$shape == 3)) {
-    r = map(
-      seq_len(input$shape[1]),
-      ~ single_loss(input[.x,,], target[.x,,])
-    )
-    return(mean(torch_stack(r)))
-  } 
-  stop("Invalid input for `my_loss`.")
+  eps = 1e-8
+  return(torch_mean(torch_sum(-target * log(input + eps), dim = 2)))
 }
 
 if (train_model) {
@@ -174,7 +194,7 @@ if (train_model) {
       optimizer = optim_adam
     ) |>
     set_hparams(
-      seq_len = smt_data$seq_len, 
+      seq_len = 20, #smt_data$seq_len, 
       num_tokens = smt_data$num_tokens
     ) |>
   #  set_opt_hparams(lr = 1e-4) |>

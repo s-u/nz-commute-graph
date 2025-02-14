@@ -12,6 +12,7 @@ thresh_len = 20
 
 # Get rid of the NA trajectory locations.
 # Get rid of the trajectories, not the NA elements!
+
 traj = map(traj, compose(na.omit, as.vector)) |>
   keep(~ !(is.null(.x) || any(is.na(.x))))
 
@@ -61,18 +62,23 @@ make_train_traj = function(traj) {
 }
 
 zero_on = function(traj_sample, ind) {
-  traj_sample[ind:length(traj_sample)] = 0
-  traj_sample
+  c(rep(0, length(traj_sample) - ind + 1), rev(traj_sample[1:(ind-1)]))
+}
+
+finish_traj = function(traj_sample, ind) {
+  traj_sample[ind]
+  #r = traj_sample[ind:length(traj_sample)]
+  #c(r, rep(tail(r, 1), ind - 1))
 }
 
 all_sub_trajs = function(traj_sample, ind) {
-  first_zero = min(min(which(traj_sample == 0)), length(traj_sample) + 1)
+#  first_zero = min(min(which(traj_sample == 0)), length(traj_sample) + 1)
   map_dfr(
-    2:(first_zero - 1),
+    2:length(traj_sample),
     ~ tibble(
       ind = ind,
-      y = list(traj_sample),
-      x = list(zero_on(traj_sample, .x))
+      x = list(zero_on(traj_sample, .x)),
+      y = finish_traj(traj_sample, .x)#)#traj_sample[.x],
     )
   )
 }
