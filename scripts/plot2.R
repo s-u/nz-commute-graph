@@ -29,7 +29,7 @@ so=order(g$count, decreasing=TRUE)
 
 ## for paper:
 dev.page <- 0
-dev.start <- if (for.paper) function() pdf(paste0("visualizations/plot2-", (dev.page <<- dev.page + 1L), ".pdf"), 16, 12) else function() NULL
+dev.start <- if (for.paper) function() pdf(paste0("visualizations/plot2-", (dev.page <<- dev.page + 1L), ".pdf"), 16, 12, compress = FALSE) else function() NULL
 
 ## draw flows
 dev.start()
@@ -49,9 +49,32 @@ arrows(gc[g$from,1][so], gc[g$from,2][so], gc[g$to,1][so], gc[g$to,2][so],
 
 lw = c(100, 500, 2500, 5000, 10000)
 par(lend=1)
-l = legend("topright",,c(rep("", length(lw) + 1),"major direction","minor direction"), title=" ",
-           lwd=c(scale * sqrt(lw)/224 * 30, 0, 6, 6), col=c(rep("#404040", length(lw)), NA, "#DF536B","#2297E6"), bg="#ffffffa0", seg.len=3, inset=0.05, cex=1.3)
-text(l$rect$left + l$rect$w * 0.82, l$text$y[seq_along(lw)], format(lw, big.mark=","), pos=2, cex=1.3)
+l = legend(
+  "topright",
+  ,
+  c(rep("", length(lw) + 1),"major direction","minor direction"), 
+  title=" ",
+  lwd=c(scale * sqrt(lw)/224 * 30, 0, 6, 6), 
+  col=c(rep("#404040", length(lw)), NA, "#DF536B","#2297E6"), 
+  bg="#ffffffa0", 
+  seg.len=3, 
+  inset=0.05, 
+  cex=1.3
+)
+lwc = c(
+  "0 - 100",
+  "101 - 500",
+  "501 - 2500",
+  "2501 - 10000",
+  "10000 and above"
+)
+text(
+  l$rect$left + l$rect$w * 1.03, 
+  l$text$y[seq_along(lw)], 
+  format(lwc, big.mark=","), 
+  pos=2, 
+  cex=1.3
+)
 sh = strheight("X\nX") * 0.8
 ltop = l$rect$top + 0.2*sh
 rect(l$rect$left, ltop - sh, l$rect$left + l$rect$w, ltop + sh, col="black")
@@ -74,7 +97,9 @@ sa$home.ct=home.ct$x[match(sa[[1]], home.ct$SA2_code_usual_residence_address)]
 sa$work.ct[is.na(sa$work.ct)] = 0
 sa$home.ct[is.na(sa$home.ct)] = 0
 
-col.fn = function(x, fn=sqrt, col=heat.colors(32, alpha=0.7)) col[fn(x / max(x, na.rm=TRUE)) * (length(col) - 1) + 1]
+col.fn = function(x, fn=sqrt, col=rev(heat.colors(32, alpha=0.7))) {
+  col[fn(x / max(x, na.rm=TRUE)) * (length(col) - 1) + 1]
+}
 
 ## home
 dev.start()
@@ -85,8 +110,10 @@ do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
 plot(geoll[in.view], add=T, col=col.fn(sa$home.ct[in.view]), border="#00000040")
 dscale()
 v = c(0, 250, 500, 750, 1000, 1500)
+vs = c("0", "1 - 250", "251 - 500", "501 - 750", "751 - 1000", "1001 - 1500")
 op = par(family="Courier")
-l = legend("topright",,format(v, big.mark=',', width=6), pt.bg=heat.colors(32)[(v/max(sa$home.ct[in.view], na.rm=TRUE)) * 31 + 1],
+pt_bg = c(NA, na.omit(rev(heat.colors(32))[(v/max(sa$home.ct[in.view], na.rm=TRUE)) * 31 + 1]))
+l = legend("topright",,format(vs, big.mark=',', width=6), pt.bg=pt_bg,
            pch=22, bg="white", pt.cex=2, inset=c(0.03, 0.07), title="  Commuters  ", title.col="white", col=1, cex=1.2)
 par(op)
 sh = strheight("X\nX")
@@ -104,10 +131,12 @@ do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
 plot(geoll[in.view], add=T, col=col.fn(sa$work.ct[in.view]), border="#00000040")
 dscale()
 v = c(100, 1000, 5000, 10000, 15000, 21000)
+vs = c("0 - 100", "101 - 1000", "1001 - 5000", "5001 - 10000", "10001 - 15000", "15001 - 21000")
 op = par(family="Courier")
 cat("Work:\n")
 print(range(sa$work.ct[in.view], na.rm=TRUE))
-l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/max(sa$work.ct[in.view], na.rm=TRUE)) * 31 + 1],
+pt_bg = rev(heat.colors(32))[(v/max(sa$work.ct[in.view], na.rm=TRUE)) * 31 + 1]
+l = legend("topright",,format(vs, big.mark=','), pt.bg=pt_bg,
            pch=22, bg="white", pt.cex=2, inset=c(0.03, 0.07), title="  Commuters  ", title.col="white", col=1, cex=1.2)
 par(op)
 ltop = l$rect$top + 0.2*sh
@@ -128,26 +157,27 @@ sa$from[m.from$from] = m.from$x
 
 # from to -- from and to are almost the same by definition
 pdist <- function(val, title, lfac=1) {
-dev.start()
-par(mar=rep(0,4))
-plot(bb0[1:2], bb0[3:4], ty='n', axes=F, asp=1/cos(mean(bb0[3:4])/180*pi))
-do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
-vmax <- max(val, na.rm=TRUE)
-plot(geoll[in.view], add=T, col=col.fn(val), border="#00000040")
-dscale()
+  dev.start()
+  par(mar=rep(0,4))
+  plot(bb0[1:2], bb0[3:4], ty='n', axes=F, asp=1/cos(mean(bb0[3:4])/180*pi))
+  do.call(rect, c(as.list(bb[c(1,3,2,4)]), col="#ABD3DE"))
+  vmax <- max(val, na.rm=TRUE)
+  plot(geoll[in.view], add=T, col=col.fn(val), border="#00000040")
+  dscale()
 
-cat("In-flows:\n")
-print(range(sa$to[in.view], na.rm=TRUE))
-v = c(5000, 20000, 40000, 50000, 65000) * lfac
-
-op = par(family="Courier")
-l = legend("topright",,format(v, big.mark=','), pt.bg=heat.colors(32)[(v/vmax) * 31 + 1],
-           pch=22, bg="white", pt.cex=3, inset=c(0.03, 0.07), title=paste(" ",title," "), title.col="white", col=1, cex=1.6)
-par(op)
-ltop = l$rect$top + 0.2*sh
-rect(l$rect$left, ltop - sh, l$rect$left + l$rect$w, ltop + sh, col="black")
-text(l$rect$left + l$rect$w / 2, ltop, title, cex=1.6, font=2, col="white")
-dev.end()
+  cat("In-flows:\n")
+  print(range(sa$to[in.view], na.rm=TRUE))
+  v = c(5000, 20000, 40000, 50000, 65000) * lfac
+  vs = c("0 - 5000", "5001 - 20000", "20001 - 40000", "40001 - 50000",
+    "50001 - 65000")
+  op = par(family="Courier")
+  l = legend("topright",,format(vs, big.mark=','), pt.bg=rev(heat.colors(32))[(v/vmax) * 31 + 1],
+             pch=22, bg="white", pt.cex=3, inset=c(0.03, 0.07), title=paste(" ",title," "), title.col="white", col=1, cex=1.6)
+  par(op)
+  ltop = l$rect$top + 0.2*sh
+  rect(l$rect$left, ltop - sh, l$rect$left + l$rect$w, ltop + sh, col="black")
+  text(l$rect$left + l$rect$w / 2, ltop, title, cex=1.6, font=2, col="white")
+  dev.end()
 }
 
 pdist(sa$to[in.view], "In-flows")

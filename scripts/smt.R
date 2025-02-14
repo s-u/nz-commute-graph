@@ -222,6 +222,9 @@ if (train_model) {
   model = luz_load(model_fn)
 }
 
+# TODO: add evaluation elsewhere
+if (0) {
+
 holdouts = x |> cv.filter(2) |> head(10000)
 preds = predict(
   model, 
@@ -260,3 +263,4 @@ decode_tensor = function(xp) {
 }
 
 holdouts$pred= decode_tensor(preds)
+}
