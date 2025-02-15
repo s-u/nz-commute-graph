@@ -62,7 +62,7 @@ make_train_traj = function(traj) {
 }
 
 zero_on = function(traj_sample, ind) {
-  c(rep(0, length(traj_sample) - ind + 1), rev(traj_sample[1:(ind-1)]))
+  c(rep(0, length(traj_sample) - ind + 1), traj_sample[1:(ind-1)])
 }
 
 finish_traj = function(traj_sample, ind) {

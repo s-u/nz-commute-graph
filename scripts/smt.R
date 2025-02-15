@@ -7,7 +7,7 @@ library(tidyr)
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
 train_model = TRUE
-epochs = 1000
+epochs = 20
 ## you could try "mps" on arm64 macOS
 default_device <- if (cuda_is_available()) {
     torch_device("cuda:0") 
@@ -184,6 +184,7 @@ my_loss = function(input, target) {
   return(torch_mean(torch_sum(-target * log(input + eps), dim = 2)))
 }
 
+train_model = TRUE
 if (train_model) {
   # cv 1 is cv.
   # cv 2 is holdout.
@@ -231,11 +232,18 @@ preds = predict(
   dataloader(
     SMTData(
       holdouts,
-      num_tokens = model$model$num_tokens,
+      num_tokens = model$model$num_tokens + 1,
     ),
     batch_size = 128
   )
 )
+
+actual = torch_tensor(as.integer(holdouts$y), device = default_device) |>
+  nnf_one_hot(num_classes=model$model$num_tokens + 1) |> 
+  (\(x) x[,2:x$shape[2]])() |>
+  torch_tensor(torch_float())
+
+my_loss(preds, actual)
 
 decode_row = function(xr) {
   apply(xr, 1, which.max) - 1
@@ -262,5 +270,6 @@ decode_tensor = function(xp) {
   stop("Unsupported tensor length.")
 }
 
-holdouts$pred= decode_tensor(preds)
+holdouts$pred = decode_tensor(preds) - 1
+holdouts$actual = decode_tensor(actual) - 1
 }
