@@ -4,10 +4,12 @@ library(purrr)
 library(dplyr)
 library(tidyr)
 
+source("scripts/smt-models.R")
+
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
 train_model = TRUE
-epochs = 20
+epochs = 50
 ## you could try "mps" on arm64 macOS
 default_device <- if (cuda_is_available()) {
     torch_device("cuda:0") 
@@ -85,87 +87,12 @@ SMTData = dataset(
           (\(x) x[,2:x$shape[2]])() |>
           torch_tensor(torch_float())
       )
+      browser()
     }
   
   },
   .length = function() {
     self$d$n
-  }
-)
-
-SMTModel = nn_module(
-  "SMTModel",
-  initialize = function(seq_len, num_tokens) {
-    self$seq_len = seq_len
-    self$num_tokens = num_tokens - 1
-
-    # Glorot (Xavier) Initialization
-    xg = 1
-    wq = matrix(
-      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-      nrow = self$num_tokens,
-      ncol = self$seq_len
-    )
-    wk = matrix(
-      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-      nrow = self$num_tokens,
-      ncol = self$seq_len
-    )
-    wv = matrix(
-      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-      nrow = self$num_tokens,
-      ncol = self$seq_len
-    )
-    w0 = matrix(
-      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
-      nrow = self$seq_len,
-      ncol = self$num_tokens
-    )
-    b0 = matrix(
-      runif(self$num_tokens, min = -xg, max = xg),
-      nrow = 1,
-      ncol = self$num_tokens
-    )
-    self$Wq = torch_tensor(wq, requires_grad = TRUE, device = default_device) |>
-      nn_parameter()
-    self$Wk = torch_tensor(wk, requires_grad = TRUE, device = default_device) |>
-      nn_parameter()
-    self$Wv = torch_tensor(wv, requires_grad = TRUE, device = default_device) |>
-      nn_parameter()
-    self$W0 = torch_tensor(w0, requires_grad = TRUE, device = default_device) |>
-      nn_parameter()
-    self$b0 = torch_tensor(b0, requires_grad = TRUE, device = default_device) |>
-      nn_parameter()
-  },
-  forward = function(x) {
-    forward_single = function(x) {
-      # Calculate attention.
-      Q = torch_matmul(x[self$seq_len,,drop = FALSE], self$Wq)
-      K = torch_matmul(x, self$Wk)
-      V = torch_matmul(x, self$Wv)
-      if (length(K$shape) > 2) browser()
-      QKt = torch_matmul(Q, K$t())
-      QKt / sqrt(Q$shape[2])
-      # No temperature for now.
-      alpha = nnf_softmax(QKt, 2)
-      attention = torch_matmul(alpha, V)
-
-      # softmax(Attention * W0 + b0)
-      nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 2)
-#      torch_argmax(r, 2)$to(dtype = torch_float())
-    }
-    # Is it batched?
-    if (length(x$shape) == 2) {
-      return(forward_single(x))
-    } else if (length(x$shape == 3)) {
-      r = map(
-        seq_len(x$shape[1]),
-        ~ forward_single(x[.x,,])
-      )
-      torch_cat(r, 1)
-    } else {
-      stop("Invalid input shape.")
-    }
   }
 )
 
