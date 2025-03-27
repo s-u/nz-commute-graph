@@ -15,7 +15,7 @@ source("scripts/smt-models.R")
 
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
-train_model = TRUE
+train_model = FALSE
 
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
@@ -28,7 +28,6 @@ default_device <- if (cuda_is_available()) {
   }
 
 
-train_model = TRUE
 epochs = 50
 ## you could try "mps" on arm64 macOS
 default_device <- if (cuda_is_available()) {
@@ -441,7 +440,7 @@ if (train_model) {
       dataloader(
         AroTokenSampleSubsetData(
           ds, 
-          sample_alloc$sample_id[sample_alloc$type == "valid"]
+          sample_alloc$sample_id[sample_alloc$type == "train"]
         ),
         batch_size = 128,
         shuffle = TRUE,
@@ -453,7 +452,7 @@ if (train_model) {
           ds, 
           sample_alloc$sample_id[sample_alloc$type == "valid"]
         ),
-        batch_size = 32,
+        batch_size = 128,
         shuffle = TRUE,
         num_workers = 0,
       ),
@@ -464,22 +463,22 @@ if (train_model) {
 
   luz_save(model, model_fn)
 } else {
-  luz_load(model_fn)
+  model = luz_load(model_fn)
 }
 
+holdout = sample_alloc |> filter(type == "holdout")
 preds = predict(
   model,
   dataloader(
-    AroTokenSampleSubsetData(
-      ds,
-      sample_alloc$sample_id[sample_alloc$type == "holdout"]
+    RDSAroTokenData(
+      data_dir = "data_dir"
     ),
-    batch_size = 256
+    batch_size = 128
   )
 )
 
 decode_row = function(xr) {
-  apply(xr, 1, which.max) - 1
+  apply(xr, 1, which.max) 
 }
 
 decode_tensor = function(xp) {
@@ -503,5 +502,5 @@ decode_tensor = function(xp) {
   stop("Unsupported tensor length.")
 }
 
-sa = sample_alloc[sample_alloc$type == "holdout",]
-sa$pred = decode_tensor(preds)
+x$pred = decode_tensor(preds)
+x = left_join(x |> rename(sample_id = ind), sample_alloc, by = "sample_id")
