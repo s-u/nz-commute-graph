@@ -15,7 +15,7 @@ source("scripts/smt-models.R")
 
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
-train_model = FALSE
+train_model = TRUE
 
 model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 
