@@ -28,7 +28,7 @@ default_device <- if (cuda_is_available()) {
   }
 
 
-epochs = 50
+epochs = 100
 ## you could try "mps" on arm64 macOS
 default_device <- if (cuda_is_available()) {
     torch_device("cuda:0") 
@@ -414,7 +414,7 @@ sample_alloc = tibble(
     case_when(
       rn %% 10 == 0 ~ "holdout",
       rn %% 10 == 9 ~ "valid",
-      .default = "train"
+      TRUE ~ "train"
     )
   ) |> 
   select(-rn)

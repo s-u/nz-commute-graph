@@ -1,5 +1,4 @@
 library(purrr)
-library(distributional)
 library(furrr)
 library(future)
 library(tibble)
@@ -39,27 +38,6 @@ threshold_trajectory = function(traj, thresh = thresh_len) {
 traj = map(traj, threshold_trajectory)
 
 non_movers = keep(traj, ~ length(unique(.x)) == 1)
-
-# this or take all partial traj of length 1, 2, ...
-make_train_traj = function(traj) {
-  sample_max = length(traj[[1]]) 
-  nb = dist_negative_binomial(size = 4, prob = 0.4) 
-  cutoff_ind = generate(nb, length(traj))[[1]] + 2
-  cutoff_ind[cutoff_ind > (sample_max - 1)] = sample_max - 1
-  hist(cutoff_ind)
-  train = map2(
-    traj, 
-    cutoff_ind, 
-    ~ {
-      .x[.y:sample_max] = -100
-      .x
-    }
-  )
-  tibble(
-    x = train,
-    y = traj
-  )
-}
 
 zero_on = function(traj_sample, ind) {
   rev(c(rep(0, length(traj_sample) - ind + 1), traj_sample[1:(ind-1)]))
