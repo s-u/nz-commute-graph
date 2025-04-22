@@ -69,4 +69,4 @@ x = future_map_dfr(
   .progress = TRUE
 )
 
-saveRDS(x, "artifacts/smt-data.rds")
+saveRDS(x, "artifacts/smt-morning-data.rds")
