@@ -16,7 +16,7 @@ source("scripts/smt-models.R")
 #model_fn = if(nzchar(.<-Sys.getenv("MODEL"))) . else "model.luz"
 model_fn = "morning-model.luz"
 
-train_model = TRUE
+train_model = FALSE
 
 num_workers = 4
 
@@ -42,7 +42,8 @@ default_device <- if (cuda_is_available()) {
   }
 
 if (!exists("x")) {
-  x = readRDS("artifacts/smt-morning-evening-data.rds")
+  x = readRDS("artifacts/smt-morning-evening-data.rds") |>
+    filter(type == 1)
 }
 
 encode_seq = function(x, ndim, device = "cpu") {
@@ -266,41 +267,25 @@ if (train_model) {
   model = luz_load(model_fn)
 }
 
-holdout = sample_alloc |> filter(type == "holdout")
-preds = predict(
-  model,
-  dataloader(
-    RDSAroTokenData(
-      info = readRDS("data_dir/info.rds") |> filter(type == 1)
-    ),
-    batch_size = 128
-  )
-)
-
-decode_row = function(xr) {
-  apply(xr, 1, which.max) 
+chunk_vector <- \(vec, chunk_size) {
+  split(vec, ceiling(seq_along(vec) / chunk_size))
 }
 
-decode_tensor = function(xp) {
-  if (length(xp$shape) == 3) {
-    return(
-      map(
-        seq_len(xp$shape[1]),
-        ~ {
-            xp[.x,,] |> as.matrix() |>
-            decode_row()
-        }
-      ) 
-    )
-  } else if (length(xp$shape == 2)) {
-    return(
-        xp |>
-        as.matrix() |>
-        decode_row()
-    )
-  }
-  stop("Unsupported tensor length.")
-}
+chunks = chunk_vector(seq_len(length(ds)), 1000)
 
-x$pred = decode_tensor(preds)
-x = left_join(x |> rename(sample_id = ind), sample_alloc, by = "sample_id")
+preds = map(
+  chunks,
+  ~ {
+    predict(model, ds[.x]$x, verbose = FALSE) |> 
+      torch_tensor(device = "cpu") |>
+      as.matrix() |>
+      apply(1, which.max)
+  },
+  .progress = interactive()
+) |> unlist()
+
+x = left_join(x |> rename(sample_id = ind), sample_alloc, by = "sample_id") |>
+  rename(commute_type = type.x, sample_type = type.y) |>
+  mutate(pred = preds)
+
+saveRDS(x, "artifacts/morning-commute-estimates.rds")

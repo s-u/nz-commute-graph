@@ -77,6 +77,87 @@ SMTModel = nn_module(
   }
 )
 
+SMTModelFuse = nn_module(
+  "SMTModel",
+  initialize = function(seq_len, num_tokens) {
+    self$seq_len = seq_len
+    self$num_tokens = num_tokens - 1
+
+    # Glorot (Xavier) Initialization
+    xg = 1
+    wq = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    wk = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    wv = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$num_tokens,
+      ncol = self$seq_len
+    )
+    w0 = matrix(
+      runif(self$seq_len * self$num_tokens, min = -xg, max = xg),
+      nrow = self$seq_len,
+      ncol = self$num_tokens
+    )
+    b0 = matrix(
+      runif(self$num_tokens, min = -xg, max = xg),
+      nrow = 1,
+      ncol = self$num_tokens
+    )
+    self$Wq = 
+      torch_tensor(wq, requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+    self$Wk = 
+      torch_tensor(wk, requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+    self$Wv = 
+      torch_tensor(wv, requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+    self$W0 = 
+      torch_tensor(w0, requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+    self$b0 = 
+      torch_tensor(b0, requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+  },
+  forward = function(x) {
+    forward_single = function(x) {
+      # Calculate attention.
+      Q = torch_matmul(x[self$seq_len,,drop = FALSE], self$Wq)
+      K = torch_matmul(x, self$Wk)
+      V = torch_matmul(x, self$Wv)
+      if (length(K$shape) > 2) browser()
+      QKt = torch_matmul(Q, K$t())
+      QKt / sqrt(Q$shape[2])
+      # No temperature for now.
+      alpha = nnf_softmax(QKt, 2)
+      attention = torch_matmul(alpha, V)
+
+      # softmax(Attention * W0 + b0)
+      nnf_softmax(torch_matmul(attention, self$W0) + self$b0, 2)
+#      torch_argmax(r, 2)$to(dtype = torch_float())
+    }
+    # Is it batched?
+    if (length(x$shape) == 2) {
+      return(forward_single(x))
+    } else if (length(x$shape == 3)) {
+      r = map(
+        seq_len(x$shape[1]),
+        ~ forward_single(x[.x,,])
+      )
+      torch_cat(r, 1)
+    } else {
+      stop("Invalid input shape.")
+    }
+  }
+)
+
 #' AroModel: Attention-Based Neural Network Module
 #'
 #' The `AroModel` is an attention-based neural network module implemented using `torch` in R. It performs attention mechanisms on input sequences to produce output sequences.
@@ -204,5 +285,56 @@ AroModel = nn_module(
     } else {
       stop("Invalid input shape.")
     }
+  }
+)
+
+
+AroFusedTransformerModel = nn_module(
+  "AroModel",
+  initialize = function(
+    in_seq_len, 
+    in_seq_dim,
+    in_emb_dim) {
+
+    self$in_seq_len = in_seq_len
+    self$in_seq_dim = in_seq_dim
+    self$in_emb_dim = in_emb_dim
+
+    self$fuser = nn_sequential(
+      nn_linear(self$in_seq_dim, self$in_seq_dim),
+      nn_linear(self$in_seq_dim, self$in_emb_dim)
+    )
+    self$mha = nn_multihead_attention(
+      embed_dim = self$in_emb_dim,
+      num_heads = 1,
+      batch_first = TRUE
+    )
+    self$W0 = matrix(
+        runif(self$in_emb_dim, min = -1, max = 1),
+        nrow = self$in_emb_dim,
+        ncol = self$in_emb_dim
+      ) |>
+      torch_tensor(requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+    self$b0 = matrix(
+        runif(self$in_emb_dim, min = -1, max = 1),
+        nrow = 1,
+        ncol = self$in_emb_dim
+      ) |>
+      torch_tensor(requires_grad = TRUE, device = default_device) |>
+      nn_parameter()
+  },
+  forward = function(x) {
+    if (length(x$shape) != 3) {
+      stop("Input must be batched.")
+    }
+    xf = self$fuser(x) 
+    am = self$mha(
+      query = xf[,1,,drop = FALSE],
+      key = xf,
+      value = xf
+    )[[1]]
+    r = nnf_softmax(torch_matmul(am, self$W0) + self$b0, dim = 3) 
+    r$reshape(r$shape[c(1, 3)])
   }
 )
