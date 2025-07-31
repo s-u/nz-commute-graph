@@ -325,6 +325,7 @@ AroFusedTransformerModel = nn_module(
       nn_parameter()
   },
   forward = function(x) {
+
     if (length(x$shape) != 3) {
       stop("Input must be batched.")
     }
